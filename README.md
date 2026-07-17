@@ -1,2 +1,2 @@
-# Midnight-Monitor
+# Midnight LLM Monitor
 Midnight Monitor Daemon
