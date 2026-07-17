@@ -1053,5 +1053,5 @@ export function getDashboardJs(): string {
     "",
     "  bootstrap();",
     "})();"
-  ].join('\\n');
+  ].join('\n');
 }
