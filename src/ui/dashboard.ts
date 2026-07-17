@@ -16,12 +16,15 @@ export function getDashboardHtml(): string {
           <p class="lede">Customize layout, resize widgets, and tune colors locally in the browser.</p>
         </div>
         <div class="statusline">
+          <button id="appearance-toggle" class="gear-button" type="button" aria-expanded="false" aria-controls="appearance-panel" title="Appearance">
+            &#9881;
+          </button>
           <span id="connection-pill" class="pill pill-warn">connecting</span>
           <span id="updated-at" class="muted">waiting for data</span>
         </div>
       </header>
 
-      <section class="control-panel panel">
+      <section id="appearance-panel" class="control-panel panel is-hidden">
         <div class="control-header">
           <div>
             <h2>Appearance</h2>
@@ -169,6 +172,18 @@ h1 {
   align-items: center;
 }
 
+.gear-button {
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border-radius: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  line-height: 1;
+}
+
 .muted {
   color: var(--muted);
 }
@@ -183,6 +198,10 @@ h1 {
 .control-panel {
   padding: 16px;
   margin-bottom: 16px;
+}
+
+.control-panel.is-hidden {
+  display: none;
 }
 
 .control-header {
@@ -222,7 +241,7 @@ h1 {
 .dashboard-grid {
   display: grid;
   grid-template-columns: repeat(12, minmax(0, 1fr));
-  grid-auto-rows: 28px;
+  grid-auto-rows: 36px;
   gap: var(--grid-gap);
 }
 
@@ -608,12 +627,12 @@ export function getDashboardJs(): string {
     "  };",
     "",
     "  const DEFAULT_LAYOUT = [",
-    "    { id: 'overview', cols: 12, rows: 3 },",
-    "    { id: 'analysis', cols: 6, rows: 4 },",
-    "    { id: 'trends', cols: 6, rows: 4 },",
-    "    { id: 'ollama', cols: 7, rows: 5 },",
-    "    { id: 'processes', cols: 5, rows: 5 },",
-    "    { id: 'resources', cols: 12, rows: 4 }",
+    "    { id: 'overview', cols: 12, rows: 5 },",
+    "    { id: 'analysis', cols: 6, rows: 6 },",
+    "    { id: 'trends', cols: 6, rows: 6 },",
+    "    { id: 'ollama', cols: 7, rows: 7 },",
+    "    { id: 'processes', cols: 5, rows: 7 },",
+    "    { id: 'resources', cols: 12, rows: 6 }",
     "  ];",
     "",
     "  const WIDGETS = {",
@@ -685,6 +704,15 @@ export function getDashboardJs(): string {
     "",
     "  function saveTheme() { window.localStorage.setItem(STORAGE_KEYS.theme, JSON.stringify(state.theme)); }",
     "  function saveLayout() { window.localStorage.setItem(STORAGE_KEYS.layout, JSON.stringify(state.layout)); }",
+    "",
+    "  function toggleAppearancePanel(force) {",
+    "    var panel = byId('appearance-panel');",
+    "    var toggle = byId('appearance-toggle');",
+    "    if (!panel || !toggle) return;",
+    "    var shouldShow = typeof force === 'boolean' ? force : panel.classList.contains('is-hidden');",
+    "    panel.classList.toggle('is-hidden', !shouldShow);",
+    "    toggle.setAttribute('aria-expanded', String(shouldShow));",
+    "  }",
     "",
     "  function applyTheme() {",
     "    var root = document.documentElement;",
@@ -949,6 +977,7 @@ export function getDashboardJs(): string {
     "",
     "  function bootstrapThemeControls() {",
     "    syncThemeControls();",
+    "    byId('appearance-toggle').addEventListener('click', function () { toggleAppearancePanel(); });",
     "    byId('theme-bg').addEventListener('input', function (event) { setTheme({ bg: event.target.value }); });",
     "    byId('theme-panel').addEventListener('input', function (event) { setTheme({ panel: event.target.value }); });",
     "    byId('theme-accent').addEventListener('input', function (event) { setTheme({ accent: event.target.value }); });",
@@ -1043,6 +1072,7 @@ export function getDashboardJs(): string {
     "  function bootstrap() {",
     "    applyTheme();",
     "    bootstrapThemeControls();",
+    "    toggleAppearancePanel(false);",
     "    render({",
     "      timestamp: new Date().toISOString(),",
     "      cpu: null, ram: null, swap: null, gpu: null, disk: null, network: null, temperatures: null, ollama: null, llamacpp: null, processes: null, history: { last60Seconds: [], last10Minutes: [], lastHour: [] }, analysis: []",
