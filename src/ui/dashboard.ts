@@ -1,6 +1,6 @@
 export function getDashboardHtml(): string {
   return `<!doctype html>
-<html lang="pt-BR">
+<html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -12,73 +12,40 @@ export function getDashboardHtml(): string {
       <header class="topbar">
         <div>
           <p class="eyebrow">Midnight LLM Monitor</p>
-          <h1>Hardware intelligence em tempo real</h1>
+          <h1>Hardware intelligence dashboard</h1>
+          <p class="lede">Customize layout, resize widgets, and tune colors locally in the browser.</p>
         </div>
         <div class="statusline">
           <span id="connection-pill" class="pill pill-warn">connecting</span>
-          <span id="updated-at" class="muted">aguardando dados</span>
+          <span id="updated-at" class="muted">waiting for data</span>
         </div>
       </header>
 
-      <section class="section">
-        <div class="section-head">
-          <h2>Resumo</h2>
-          <p>Recursos principais, saúde e pressão de execução.</p>
-        </div>
-        <div id="summary-grid" class="metric-grid"></div>
-      </section>
-
-      <section class="section">
-        <div class="section-head">
-          <h2>Análise</h2>
-          <p>Leituras automáticas para orientar decisões do Midnight Coder.</p>
-        </div>
-        <div id="analysis-list" class="analysis-list"></div>
-      </section>
-
-      <section class="section split">
-        <div class="panel">
-          <div class="section-head">
-            <h2>Histórico</h2>
-            <p>Tendência dos últimos minutos.</p>
+      <section class="control-panel panel">
+        <div class="control-header">
+          <div>
+            <h2>Appearance</h2>
+            <p>These settings are stored in your browser only.</p>
           </div>
-          <div class="chart-grid">
-            <canvas id="chart-cpu" width="640" height="180"></canvas>
-            <canvas id="chart-ram" width="640" height="180"></canvas>
-            <canvas id="chart-gpu" width="640" height="180"></canvas>
-            <canvas id="chart-temp" width="640" height="180"></canvas>
+          <div class="control-actions">
+            <button id="preset-midnight" type="button">Midnight</button>
+            <button id="preset-contrast" type="button">Contrast</button>
+            <button id="reset-theme" type="button">Reset theme</button>
+            <button id="reset-layout" type="button">Reset layout</button>
           </div>
+        </div>
+        <div class="controls">
+          <label><span>Background</span><input id="theme-bg" type="color" /></label>
+          <label><span>Panel</span><input id="theme-panel" type="color" /></label>
+          <label><span>Accent</span><input id="theme-accent" type="color" /></label>
+          <label><span>Accent 2</span><input id="theme-accent-2" type="color" /></label>
+          <label><span>Text</span><input id="theme-text" type="color" /></label>
+          <label><span>Muted</span><input id="theme-muted" type="color" /></label>
+          <label><span>Radius</span><input id="theme-radius" type="range" min="0" max="28" value="14" /></label>
         </div>
       </section>
 
-      <section class="section split">
-        <div class="panel">
-          <div class="section-head">
-            <h2>Ollama</h2>
-            <p>Modelos em execução e catálogo instalado.</p>
-          </div>
-          <div id="ollama-running" class="table-wrap"></div>
-          <div id="ollama-installed" class="table-wrap"></div>
-        </div>
-      </section>
-
-      <section class="section split">
-        <div class="panel">
-          <div class="section-head">
-            <h2>Processos</h2>
-            <p>Top consumidores de CPU, RAM e GPU.</p>
-          </div>
-          <div id="processes-table" class="table-wrap"></div>
-        </div>
-        <div class="panel">
-          <div class="section-head">
-            <h2>Discos e rede</h2>
-            <p>Uso por filesystem e tráfego atual.</p>
-          </div>
-          <div id="disk-list" class="stack"></div>
-          <div id="network-list" class="stack"></div>
-        </div>
-      </section>
+      <section id="dashboard-grid" class="dashboard-grid" aria-live="polite"></section>
     </main>
     <script src="/app.js"></script>
   </body>
@@ -90,7 +57,7 @@ export function getDashboardCss(): string {
 :root {
   color-scheme: dark;
   --bg: #07111f;
-  --bg-soft: #0d1728;
+  --bg-2: #0d1728;
   --panel: rgba(12, 21, 36, 0.88);
   --panel-border: rgba(148, 163, 184, 0.18);
   --text: #e5eefb;
@@ -101,6 +68,9 @@ export function getDashboardCss(): string {
   --warn: #f59e0b;
   --bad: #f87171;
   --line: rgba(148, 163, 184, 0.12);
+  --radius: 14px;
+  --grid-gap: 12px;
+  --canvas-bg: rgba(4, 10, 18, 0.7);
 }
 
 * {
@@ -123,17 +93,48 @@ body {
   padding: 24px;
 }
 
+button,
+input {
+  font: inherit;
+}
+
+button {
+  border: 1px solid var(--panel-border);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text);
+  border-radius: 999px;
+  padding: 8px 12px;
+  cursor: pointer;
+}
+
+button:hover {
+  border-color: rgba(125, 211, 252, 0.45);
+}
+
+input[type="color"] {
+  width: 100%;
+  height: 38px;
+  border: 1px solid var(--panel-border);
+  border-radius: 10px;
+  background: transparent;
+  padding: 2px;
+}
+
+input[type="range"] {
+  width: 100%;
+}
+
 .shell {
-  max-width: 1440px;
+  max-width: 1560px;
   margin: 0 auto;
 }
 
 .topbar {
   display: flex;
   justify-content: space-between;
-  gap: 16px;
   align-items: end;
-  margin-bottom: 24px;
+  gap: 16px;
+  margin-bottom: 18px;
 }
 
 .eyebrow {
@@ -146,6 +147,7 @@ body {
 
 h1,
 h2,
+h3,
 p {
   margin: 0;
 }
@@ -153,6 +155,12 @@ p {
 h1 {
   font-size: 34px;
   line-height: 1.08;
+}
+
+.lede {
+  margin-top: 8px;
+  color: var(--muted);
+  max-width: 62ch;
 }
 
 .statusline {
@@ -165,35 +173,216 @@ h1 {
   color: var(--muted);
 }
 
-.section {
-  margin: 0 0 20px;
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius);
+  backdrop-filter: blur(10px);
 }
 
-.section-head {
+.control-panel {
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.control-header {
   display: flex;
   justify-content: space-between;
-  gap: 12px;
+  gap: 16px;
   align-items: end;
-  margin-bottom: 12px;
+  margin-bottom: 14px;
 }
 
-.section-head p {
+.control-header p {
   color: var(--muted);
-  max-width: 64ch;
+}
+
+.control-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: end;
+}
+
+.controls {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.controls label {
+  display: grid;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  grid-auto-rows: 28px;
+  gap: var(--grid-gap);
+}
+
+.widget {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius);
+  background: linear-gradient(180deg, rgba(14, 24, 41, 0.96), rgba(8, 16, 28, 0.96));
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.18);
+  position: relative;
+}
+
+.widget.drag-over {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.widget-header {
+  display: flex;
+  gap: 10px;
+  align-items: start;
+  padding: 12px 12px 10px;
+  border-bottom: 1px solid var(--line);
+}
+
+.drag-handle {
+  user-select: none;
+  cursor: grab;
+  color: var(--muted);
+  font-size: 18px;
+  line-height: 1;
+  padding-top: 2px;
+}
+
+.widget-title {
+  flex: 1;
+  min-width: 0;
+}
+
+.widget-title h3 {
+  font-size: 15px;
+  line-height: 1.2;
+}
+
+.widget-title p {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.widget-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: end;
+}
+
+.widget-actions button {
+  padding: 5px 9px;
+  border-radius: 8px;
+  font-size: 12px;
+}
+
+.widget-body {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  overflow: auto;
+}
+
+.widget[data-cols="12"] {
+  grid-column: span 12;
+}
+
+.widget[data-cols="11"] {
+  grid-column: span 11;
+}
+
+.widget[data-cols="10"] {
+  grid-column: span 10;
+}
+
+.widget[data-cols="9"] {
+  grid-column: span 9;
+}
+
+.widget[data-cols="8"] {
+  grid-column: span 8;
+}
+
+.widget[data-cols="7"] {
+  grid-column: span 7;
+}
+
+.widget[data-cols="6"] {
+  grid-column: span 6;
+}
+
+.widget[data-cols="5"] {
+  grid-column: span 5;
+}
+
+.widget[data-cols="4"] {
+  grid-column: span 4;
+}
+
+.widget[data-cols="3"] {
+  grid-column: span 3;
+}
+
+.widget[data-cols="2"] {
+  grid-column: span 2;
+}
+
+.widget[data-rows="2"] {
+  grid-row: span 2;
+}
+
+.widget[data-rows="3"] {
+  grid-row: span 3;
+}
+
+.widget[data-rows="4"] {
+  grid-row: span 4;
+}
+
+.widget[data-rows="5"] {
+  grid-row: span 5;
+}
+
+.widget[data-rows="6"] {
+  grid-row: span 6;
+}
+
+.resize-handle {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  width: 14px;
+  height: 14px;
+  cursor: nwse-resize;
+  border-right: 2px solid rgba(255, 255, 255, 0.35);
+  border-bottom: 2px solid rgba(255, 255, 255, 0.35);
 }
 
 .metric-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 10px;
 }
 
 .metric {
-  background: linear-gradient(180deg, rgba(14, 24, 41, 0.96), rgba(8, 16, 28, 0.96));
-  border: 1px solid var(--panel-border);
+  border: 1px solid var(--line);
   border-radius: 12px;
-  padding: 16px;
-  min-height: 112px;
+  padding: 14px;
+  min-height: 104px;
+  background: rgba(4, 10, 18, 0.42);
 }
 
 .metric .label {
@@ -205,7 +394,7 @@ h1 {
 }
 
 .metric .value {
-  font-size: 30px;
+  font-size: 28px;
   font-weight: 700;
   line-height: 1.05;
 }
@@ -226,33 +415,6 @@ h1 {
 
 .metric.bad .value {
   color: var(--bad);
-}
-
-.panel {
-  background: var(--panel);
-  border: 1px solid var(--panel-border);
-  border-radius: 14px;
-  padding: 16px;
-  backdrop-filter: blur(10px);
-}
-
-.split {
-  display: grid;
-  grid-template-columns: 1fr;
-}
-
-.chart-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 12px;
-}
-
-canvas {
-  width: 100%;
-  height: 180px;
-  background: rgba(4, 10, 18, 0.7);
-  border: 1px solid var(--line);
-  border-radius: 12px;
 }
 
 .analysis-list,
@@ -323,7 +485,6 @@ canvas {
 }
 
 .table-wrap {
-  margin-top: 12px;
   overflow: hidden;
   border: 1px solid var(--line);
   border-radius: 12px;
@@ -362,7 +523,7 @@ tr:last-child td {
 
 .bar {
   display: grid;
-  grid-template-columns: 90px 1fr 64px;
+  grid-template-columns: 90px 1fr 68px;
   gap: 12px;
   align-items: center;
   padding: 10px 12px;
@@ -388,292 +549,509 @@ tr:last-child td {
   background: linear-gradient(90deg, var(--accent), var(--accent-2));
 }
 
-@media (max-width: 900px) {
+canvas {
+  width: 100%;
+  height: 180px;
+  background: var(--canvas-bg);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+
+.chart-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 12px;
+}
+
+@media (max-width: 1100px) {
   body {
     padding: 16px;
   }
 
   .topbar,
-  .section-head {
+  .control-header {
     align-items: start;
     flex-direction: column;
   }
 
-  h1 {
-    font-size: 28px;
+  .controls {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .dashboard-grid {
+    grid-template-columns: repeat(1, minmax(0, 1fr));
+  }
+
+  .widget[data-cols] {
+    grid-column: span 1;
   }
 }
 `;
 }
 
 export function getDashboardJs(): string {
-  return `
-const state = {
-  snapshot: null,
-  socket: null
-};
-
-const el = (id) => document.getElementById(id);
-
-function fmtBytes(value) {
-  if (value === null || value === undefined || Number.isNaN(value)) return "n/a";
-  const units = ["B", "KB", "MB", "GB", "TB"];
-  let current = Number(value);
-  let index = 0;
-  while (current >= 1024 && index < units.length - 1) {
-    current /= 1024;
-    index += 1;
-  }
-  return \`\${current.toFixed(current >= 100 ? 0 : current >= 10 ? 1 : 2)} \${units[index]}\`;
-}
-
-function fmtPct(value) {
-  return typeof value === "number" ? \`\${value.toFixed(1)}%\` : "n/a";
-}
-
-function fmtNum(value) {
-  return typeof value === "number" ? value.toFixed(value >= 10 ? 0 : 1) : "n/a";
-}
-
-function severityClass(severity) {
-  return severity === "critical" ? "critical" : severity === "warning" ? "warning" : "info";
-}
-
-function statusClass(percent) {
-  if (typeof percent !== "number") return "warn";
-  if (percent >= 90) return "bad";
-  if (percent >= 70) return "warn";
-  return "good";
-}
-
-function makeMetric(label, value, sub, tone) {
-  return \`
-    <article class="metric \${tone}">
-      <div class="label">\${label}</div>
-      <div class="value">\${value}</div>
-      <div class="sub">\${sub}</div>
-    </article>
-  \`;
-}
-
-function renderSummary(snapshot) {
-  const cpu = snapshot.cpu ?? {};
-  const ram = snapshot.ram ?? {};
-  const swap = snapshot.swap ?? {};
-  const gpu = snapshot.gpu ?? {};
-  const temp = snapshot.temperatures ?? {};
-  const network = snapshot.network ?? {};
-  const disk = snapshot.disk ?? { filesystems: [] };
-  const analysis = snapshot.analysis ?? [];
-  const bestFilesystem = disk.filesystems?.[0];
-
-  const cards = [
-    makeMetric("CPU", fmtPct(cpu.usage), \`\${cpu.cores ?? "n/a"} cores · \${cpu.frequencyMhz ?? "n/a"} MHz\`, statusClass(cpu.usage)),
-    makeMetric("RAM", fmtPct(ram.usagePercent), \`\${fmtBytes(ram.usedBytes)} / \${fmtBytes(ram.totalBytes)}\`, statusClass(ram.usagePercent)),
-    makeMetric("Swap", fmtPct(swap.usagePercent), \`\${fmtBytes(swap.usedBytes)} / \${fmtBytes(swap.totalBytes)}\`, statusClass(swap.usagePercent)),
-    makeMetric("GPU", fmtPct(gpu.usagePercent), \`\${gpu.vendor ?? "n/a"} · \${gpu.model ?? "n/a"}\`, statusClass(gpu.usagePercent)),
-    makeMetric("VRAM", fmtPct(gpu.vram?.totalBytes ? (gpu.vram.usedBytes ?? 0) / gpu.vram.totalBytes * 100 : null), \`\${fmtBytes(gpu.vram?.usedBytes)} / \${fmtBytes(gpu.vram?.totalBytes)}\`, statusClass(gpu.usagePercent)),
-    makeMetric("Temp", typeof temp.cpuCelsius === "number" ? \`\${temp.cpuCelsius.toFixed(1)}°C\` : typeof temp.gpuCelsius === "number" ? \`\${temp.gpuCelsius.toFixed(1)}°C\` : "n/a", \`\${temp.fanRpm ?? "n/a"} RPM\`, typeof temp.gpuCelsius === "number" && temp.gpuCelsius >= 85 ? "bad" : "good"),
-    makeMetric("Network", \`\${fmtNum(network.totalRxBytesPerSec)} B/s ↓\`, \`\${fmtNum(network.totalTxBytesPerSec)} B/s ↑ · \${network.hostname ?? "n/a"}\`, "good"),
-    makeMetric("Disk", bestFilesystem ? \`\${fmtPct(bestFilesystem.usagePercent)}\` : "n/a", bestFilesystem ? \`\${bestFilesystem.mount} · \${fmtBytes(bestFilesystem.usedBytes)} / \${fmtBytes(bestFilesystem.totalBytes)}\` : "sem dados", statusClass(bestFilesystem?.usagePercent))
-  ];
-
-  el("summary-grid").innerHTML = cards.join("");
-
-  const pill = el("connection-pill");
-  const badFinding = analysis.find((item) => item.severity === "critical");
-  const warnFinding = analysis.find((item) => item.severity === "warning");
-  pill.className = \`pill \${badFinding ? "pill-bad" : warnFinding ? "pill-warn" : "pill-ok"}\`;
-  pill.textContent = badFinding ? "critical" : warnFinding ? "warning" : "ok";
-
-  const updated = el("updated-at");
-  updated.textContent = \`atualizado em \${new Date(snapshot.timestamp).toLocaleString("pt-BR")}\`;
-}
-
-function renderAnalysis(snapshot) {
-  const list = snapshot.analysis ?? [];
-  if (!list.length) {
-    el("analysis-list").innerHTML = \`
-      <div class="finding info">
-        <div>
-          <div class="title">Sem alertas</div>
-          <div class="desc">Nenhuma pressão relevante foi detectada.</div>
-        </div>
-      </div>
-    \`;
-    return;
-  }
-  el("analysis-list").innerHTML = list.map((finding) => \`
-    <div class="finding \${severityClass(finding.severity)}">
-      <div>
-        <div class="title">\${finding.message}</div>
-        <div class="desc">\${finding.suggestion ?? finding.source}</div>
-      </div>
-      <div class="mini">\${finding.severity.toUpperCase()}</div>
-    </div>
-  \`).join("");
-}
-
-function renderTable(containerId, columns, rows) {
-  const container = el(containerId);
-  if (!rows.length) {
-    container.innerHTML = \`<div class="bar"><div class="mini">Sem dados</div></div>\`;
-    return;
-  }
-  container.innerHTML = \`
-    <table>
-      <thead><tr>\${columns.map((col) => \`<th>\${col}</th>\`).join("")}</tr></thead>
-      <tbody>
-        \${rows.map((row) => \`<tr>\${row.map((cell) => \`<td>\${cell}</td>\`).join("")}</tr>\`).join("")}
-      </tbody>
-    </table>
-  \`;
-}
-
-function renderOllama(snapshot) {
-  const running = snapshot.ollama?.running ?? [];
-  const installed = snapshot.ollama?.installed ?? [];
-
-  renderTable("ollama-running", ["Modelo", "Processador", "Contexto", "Expira"], running.map((item) => [
-    item.name,
-    item.processorSplit ?? "n/a",
-    item.context ?? "n/a",
-    item.expiresAt ?? "n/a"
-  ]));
-
-  renderTable("ollama-installed", ["Instalado", "Contexto", "Arquitetura", "Licença"], installed.map((item) => [
-    item.name,
-    item.contextLength ?? "n/a",
-    item.architecture ?? "n/a",
-    item.license ?? "n/a"
-  ]));
-}
-
-function renderProcesses(snapshot) {
-  const processes = snapshot.processes?.processes ?? [];
-  renderTable("processes-table", ["PID", "Processo", "CPU", "RAM", "GPU"], processes.map((item) => [
-    item.pid,
-    item.command,
-    fmtPct(item.cpuPercent),
-    fmtBytes(item.ramBytes),
-    item.gpuPercent === null || item.gpuPercent === undefined ? "n/a" : fmtPct(item.gpuPercent)
-  ]));
-}
-
-function renderBars(containerId, items, labelKey, valueKey, formatValue, tone) {
-  const container = el(containerId);
-  if (!items.length) {
-    container.innerHTML = \`<div class="bar"><div class="mini">Sem dados</div></div>\`;
-    return;
-  }
-  container.innerHTML = items.map((item) => {
-    const value = item[valueKey];
-    const percent = typeof value === "number" ? Math.max(0, Math.min(100, value)) : 0;
-    return \`
-      <div class="bar">
-        <div>\${item[labelKey]}</div>
-        <div class="track"><div class="fill" style="width:\${percent}%; background: linear-gradient(90deg, var(--\${tone}), rgba(255,255,255,0.2));"></div></div>
-        <div class="mini">\${formatValue(value)}</div>
-      </div>
-    \`;
-  }).join("");
-}
-
-function renderDiskAndNetwork(snapshot) {
-  renderBars("disk-list", snapshot.disk?.filesystems ?? [], "mount", "usagePercent", (value) => fmtPct(value), "accent");
-  renderBars("network-list", snapshot.network?.traffic ?? [], "interface", "rxBytesPerSec", (value) => \`\${fmtNum(value)} B/s\`, "accent-2");
-}
-
-function drawChart(canvas, points, key, color) {
-  if (!canvas || !points.length) {
-    return;
-  }
-  const ratio = window.devicePixelRatio || 1;
-  const width = canvas.clientWidth * ratio;
-  const height = canvas.clientHeight * ratio;
-  canvas.width = width;
-  canvas.height = height;
-  const ctx = canvas.getContext("2d");
-  if (!ctx) return;
-  ctx.clearRect(0, 0, width, height);
-  ctx.fillStyle = "rgba(4, 10, 18, 0.7)";
-  ctx.fillRect(0, 0, width, height);
-  ctx.strokeStyle = "rgba(148, 163, 184, 0.14)";
-  ctx.lineWidth = 1;
-  for (let i = 0; i <= 4; i += 1) {
-    const y = (height / 4) * i;
-    ctx.beginPath();
-    ctx.moveTo(0, y);
-    ctx.lineTo(width, y);
-    ctx.stroke();
-  }
-  const values = points.map((point) => typeof point[key] === "number" ? Number(point[key]) : null).filter((value) => value !== null);
-  if (!values.length) {
-    return;
-  }
-  const max = Math.max(...values, 1);
-  const min = Math.min(...values, 0);
-  const span = Math.max(1, max - min);
-  ctx.strokeStyle = color;
-  ctx.lineWidth = 2 * ratio;
-  ctx.beginPath();
-  points.forEach((point, index) => {
-    const value = typeof point[key] === "number" ? Number(point[key]) : min;
-    const x = points.length === 1 ? width / 2 : (index / (points.length - 1)) * width;
-    const y = height - ((value - min) / span) * (height - 24) - 12;
-    if (index === 0) {
-      ctx.moveTo(x, y);
-    } else {
-      ctx.lineTo(x, y);
-    }
-  });
-  ctx.stroke();
-}
-
-function renderCharts(snapshot) {
-  const points = snapshot.history?.last10Minutes ?? [];
-  drawChart(el("chart-cpu"), points, "cpuUsage", "#7dd3fc");
-  drawChart(el("chart-ram"), points, "ramUsedBytes", "#34d399");
-  drawChart(el("chart-gpu"), points, "gpuUsagePercent", "#8b5cf6");
-  drawChart(el("chart-temp"), points, "temperatureCelsius", "#f59e0b");
-}
-
-function render(snapshot) {
-  state.snapshot = snapshot;
-  renderSummary(snapshot);
-  renderAnalysis(snapshot);
-  renderCharts(snapshot);
-  renderOllama(snapshot);
-  renderProcesses(snapshot);
-  renderDiskAndNetwork(snapshot);
-}
-
-function connect() {
-  const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-  const socket = new WebSocket(\`\${protocol}//\${window.location.host}/ws\`);
-  state.socket = socket;
-  socket.onopen = () => {
-    el("connection-pill").className = "pill pill-ok";
-    el("connection-pill").textContent = "online";
-  };
-  socket.onclose = () => {
-    el("connection-pill").className = "pill pill-warn";
-    el("connection-pill").textContent = "reconnecting";
-    setTimeout(connect, 1500);
-  };
-  socket.onerror = () => {
-    el("connection-pill").className = "pill pill-bad";
-    el("connection-pill").textContent = "error";
-  };
-  socket.onmessage = (event) => {
-    try {
-      render(JSON.parse(event.data));
-    } catch {
-      // ignore malformed payloads
-    }
-  };
-}
-
-connect();
-`;
+  return [
+    "(function () {",
+    "  const STORAGE_KEYS = {",
+    "    theme: 'midnight-monitor.theme.v2',",
+    "    layout: 'midnight-monitor.layout.v2'",
+    "  };",
+    "",
+    "  const DEFAULT_THEME = {",
+    "    bg: '#07111f',",
+    "    panel: '#0c1524',",
+    "    accent: '#7dd3fc',",
+    "    accent2: '#8b5cf6',",
+    "    text: '#e5eefb',",
+    "    muted: '#8ea0bd',",
+    "    radius: 14",
+    "  };",
+    "",
+    "  const DEFAULT_LAYOUT = [",
+    "    { id: 'overview', cols: 12, rows: 3 },",
+    "    { id: 'analysis', cols: 6, rows: 4 },",
+    "    { id: 'trends', cols: 6, rows: 4 },",
+    "    { id: 'ollama', cols: 7, rows: 5 },",
+    "    { id: 'processes', cols: 5, rows: 5 },",
+    "    { id: 'resources', cols: 12, rows: 4 }",
+    "  ];",
+    "",
+    "  const WIDGETS = {",
+    "    overview: { title: 'Overview', description: 'Core system snapshot.' },",
+    "    analysis: { title: 'Analysis', description: 'Automatic hardware guidance.' },",
+    "    trends: { title: 'Trends', description: 'Recent history and rates.' },",
+    "    ollama: { title: 'Ollama', description: 'Running and installed models.' },",
+    "    processes: { title: 'Processes', description: 'Top resource consumers.' },",
+    "    resources: { title: 'Storage and Network', description: 'Filesystem usage and traffic.' }",
+    "  };",
+    "",
+    "  const state = {",
+    "    snapshot: null,",
+    "    socket: null,",
+    "    layout: loadLayout(),",
+    "    theme: loadTheme(),",
+    "    draggingId: null,",
+    "    resizing: null",
+    "  };",
+    "",
+    "  function byId(id) { return document.getElementById(id); }",
+    "",
+    "  function clamp(value, min, max) { return Math.min(max, Math.max(min, value)); }",
+    "",
+    "  function fmtBytes(value) {",
+    "    if (value === null || value === undefined || Number.isNaN(value)) return 'n/a';",
+    "    var units = ['B', 'KB', 'MB', 'GB', 'TB'];",
+    "    var current = Number(value);",
+    "    var index = 0;",
+    "    while (current >= 1024 && index < units.length - 1) { current /= 1024; index += 1; }",
+    "    return current.toFixed(current >= 100 ? 0 : current >= 10 ? 1 : 2) + ' ' + units[index];",
+    "  }",
+    "",
+    "  function fmtPct(value) { return typeof value === 'number' ? value.toFixed(1) + '%' : 'n/a'; }",
+    "  function fmtNum(value) { return typeof value === 'number' ? value.toFixed(value >= 10 ? 0 : 1) : 'n/a'; }",
+    "  function severityClass(severity) { return severity === 'critical' ? 'critical' : severity === 'warning' ? 'warning' : 'info'; }",
+    "  function statusClass(percent) { if (typeof percent !== 'number') return 'warn'; if (percent >= 90) return 'bad'; if (percent >= 70) return 'warn'; return 'good'; }",
+    "",
+    "  function loadTheme() {",
+    "    try {",
+    "      var raw = window.localStorage.getItem(STORAGE_KEYS.theme);",
+    "      var theme = raw ? Object.assign({}, DEFAULT_THEME, JSON.parse(raw)) : Object.assign({}, DEFAULT_THEME);",
+    "      theme.panel = normalizeHex(theme.panel, DEFAULT_THEME.panel);",
+    "      return theme;",
+    "    } catch (_error) {",
+    "      return Object.assign({}, DEFAULT_THEME);",
+    "    }",
+    "  }",
+    "",
+    "  function loadLayout() {",
+    "    try {",
+    "      var raw = window.localStorage.getItem(STORAGE_KEYS.layout);",
+    "      if (!raw) return DEFAULT_LAYOUT.map(function (item) { return Object.assign({}, item); });",
+    "      var parsed = JSON.parse(raw);",
+    "      if (!Array.isArray(parsed)) return DEFAULT_LAYOUT.map(function (item) { return Object.assign({}, item); });",
+    "      var byId = new Map(parsed.map(function (item) { return [item.id, item]; }));",
+    "      return DEFAULT_LAYOUT.map(function (item) {",
+    "        var saved = byId.get(item.id) || {};",
+    "        return {",
+    "          id: item.id,",
+    "          cols: clamp(Number(saved.cols || item.cols), 2, 12),",
+    "          rows: clamp(Number(saved.rows || item.rows), 2, 8)",
+    "        };",
+    "      });",
+    "    } catch (_error) {",
+    "      return DEFAULT_LAYOUT.map(function (item) { return Object.assign({}, item); });",
+    "    }",
+    "  }",
+    "",
+    "  function saveTheme() { window.localStorage.setItem(STORAGE_KEYS.theme, JSON.stringify(state.theme)); }",
+    "  function saveLayout() { window.localStorage.setItem(STORAGE_KEYS.layout, JSON.stringify(state.layout)); }",
+    "",
+    "  function applyTheme() {",
+    "    var root = document.documentElement;",
+    "    root.style.setProperty('--bg', state.theme.bg);",
+    "    root.style.setProperty('--panel', hexToRgba(state.theme.panel, 0.88));",
+    "    root.style.setProperty('--accent', state.theme.accent);",
+    "    root.style.setProperty('--accent-2', state.theme.accent2);",
+    "    root.style.setProperty('--text', state.theme.text);",
+    "    root.style.setProperty('--muted', state.theme.muted);",
+    "    root.style.setProperty('--radius', String(state.theme.radius) + 'px');",
+    "  }",
+    "",
+    "  function setTheme(theme) {",
+    "    state.theme = Object.assign({}, state.theme, theme);",
+    "    applyTheme();",
+    "    saveTheme();",
+    "    syncThemeControls();",
+    "  }",
+    "",
+    "  function syncThemeControls() {",
+    "    byId('theme-bg').value = state.theme.bg;",
+    "    byId('theme-panel').value = state.theme.panel;",
+    "    byId('theme-accent').value = state.theme.accent;",
+    "    byId('theme-accent-2').value = state.theme.accent2;",
+    "    byId('theme-text').value = state.theme.text;",
+    "    byId('theme-muted').value = state.theme.muted;",
+    "    byId('theme-radius').value = String(state.theme.radius);",
+    "  }",
+    "",
+    "  function normalizeHex(value, fallback) {",
+    "    return typeof value === 'string' && /^#([0-9a-fA-F]{6})$/.test(value) ? value : fallback;",
+    "  }",
+    "",
+    "  function hexToRgba(hex, alpha) {",
+    "    if (!/^#([0-9a-fA-F]{6})$/.test(hex)) return 'rgba(12, 21, 36, ' + alpha + ')';",
+    "    var normalized = hex.slice(1);",
+    "    var red = parseInt(normalized.slice(0, 2), 16);",
+    "    var green = parseInt(normalized.slice(2, 4), 16);",
+    "    var blue = parseInt(normalized.slice(4, 6), 16);",
+    "    return 'rgba(' + red + ', ' + green + ', ' + blue + ', ' + alpha + ')';",
+    "  }",
+    "",
+    "  function normalizedLayout() {",
+    "    return state.layout.slice().sort(function (left, right) { return DEFAULT_LAYOUT.findIndex(function (item) { return item.id === left.id; }) - DEFAULT_LAYOUT.findIndex(function (item) { return item.id === right.id; }); });",
+    "  }",
+    "",
+    "  function moveWidget(id, delta) {",
+    "    var index = state.layout.findIndex(function (item) { return item.id === id; });",
+    "    if (index < 0) return;",
+    "    var nextIndex = clamp(index + delta, 0, state.layout.length - 1);",
+    "    if (nextIndex === index) return;",
+    "    var item = state.layout.splice(index, 1)[0];",
+    "    state.layout.splice(nextIndex, 0, item);",
+    "    saveLayout();",
+    "    render();",
+    "  }",
+    "",
+    "  function resizeWidget(id, colsDelta, rowsDelta) {",
+    "    var item = state.layout.find(function (entry) { return entry.id === id; });",
+    "    if (!item) return;",
+    "    item.cols = clamp(item.cols + colsDelta, 2, 12);",
+    "    item.rows = clamp(item.rows + rowsDelta, 2, 8);",
+    "    saveLayout();",
+    "    render();",
+    "  }",
+    "",
+    "  function makeMetric(label, value, sub, tone) {",
+    "    return '<article class=\"metric ' + tone + '\"><div class=\"label\">' + label + '</div><div class=\"value\">' + value + '</div><div class=\"sub\">' + sub + '</div></article>';",
+    "  }",
+    "",
+    "  function renderOverview(snapshot) {",
+    "    var cpu = snapshot.cpu || {};",
+    "    var ram = snapshot.ram || {};",
+    "    var swap = snapshot.swap || {};",
+    "    var gpu = snapshot.gpu || {};",
+    "    var temp = snapshot.temperatures || {};",
+    "    var network = snapshot.network || {};",
+    "    var disk = snapshot.disk || { filesystems: [] };",
+    "    var bestFilesystem = disk.filesystems && disk.filesystems[0];",
+    "    var cards = [",
+    "      makeMetric('CPU', fmtPct(cpu.usage), String(cpu.cores || 'n/a') + ' cores · ' + String(cpu.frequencyMhz || 'n/a') + ' MHz', statusClass(cpu.usage)),",
+    "      makeMetric('Memory', fmtPct(ram.usagePercent), fmtBytes(ram.usedBytes) + ' / ' + fmtBytes(ram.totalBytes), statusClass(ram.usagePercent)),",
+    "      makeMetric('Swap', fmtPct(swap.usagePercent), fmtBytes(swap.usedBytes) + ' / ' + fmtBytes(swap.totalBytes), statusClass(swap.usagePercent)),",
+    "      makeMetric('GPU', fmtPct(gpu.usagePercent), String(gpu.vendor || 'n/a') + ' · ' + String(gpu.model || 'n/a'), statusClass(gpu.usagePercent)),",
+    "      makeMetric('VRAM', gpu.vram && gpu.vram.totalBytes ? fmtPct((gpu.vram.usedBytes || 0) / gpu.vram.totalBytes * 100) : 'n/a', fmtBytes(gpu.vram && gpu.vram.usedBytes) + ' / ' + fmtBytes(gpu.vram && gpu.vram.totalBytes), statusClass(gpu.usagePercent)),",
+    "      makeMetric('Temperature', typeof temp.cpuCelsius === 'number' ? temp.cpuCelsius.toFixed(1) + ' C' : typeof temp.gpuCelsius === 'number' ? temp.gpuCelsius.toFixed(1) + ' C' : 'n/a', String(temp.fanRpm || 'n/a') + ' RPM', typeof temp.gpuCelsius === 'number' && temp.gpuCelsius >= 85 ? 'bad' : 'good'),",
+    "      makeMetric('Network', fmtNum(network.totalRxBytesPerSec) + ' B/s down', fmtNum(network.totalTxBytesPerSec) + ' B/s up · ' + String(network.hostname || 'n/a'), 'good'),",
+    "      makeMetric('Disk', bestFilesystem ? fmtPct(bestFilesystem.usagePercent) : 'n/a', bestFilesystem ? String(bestFilesystem.mount) + ' · ' + fmtBytes(bestFilesystem.usedBytes) + ' / ' + fmtBytes(bestFilesystem.totalBytes) : 'no data', statusClass(bestFilesystem && bestFilesystem.usagePercent))",
+    "    ];",
+    "    return '<div class=\"metric-grid\">' + cards.join('') + '</div>';",
+    "  }",
+    "",
+    "  function renderAnalysis(snapshot) {",
+    "    var list = snapshot.analysis || [];",
+    "    if (!list.length) {",
+    "      return '<div class=\"finding info\"><div><div class=\"title\">No alerts</div><div class=\"desc\">No meaningful pressure was detected.</div></div></div>';",
+    "    }",
+    "    return list.map(function (finding) {",
+    "      return '<div class=\"finding ' + severityClass(finding.severity) + '\"><div><div class=\"title\">' + finding.message + '</div><div class=\"desc\">' + (finding.suggestion || finding.source) + '</div></div><div class=\"mini\">' + String(finding.severity).toUpperCase() + '</div></div>';",
+    "    }).join('');",
+    "  }",
+    "",
+    "  function renderTrendCanvases() {",
+    "    return '<div class=\"chart-grid\"><canvas id=\"chart-cpu\" width=\"640\" height=\"180\"></canvas><canvas id=\"chart-ram\" width=\"640\" height=\"180\"></canvas><canvas id=\"chart-gpu\" width=\"640\" height=\"180\"></canvas><canvas id=\"chart-temp\" width=\"640\" height=\"180\"></canvas></div>';",
+    "  }",
+    "",
+    "  function renderTable(containerId, columns, rows) {",
+    "    var container = byId(containerId);",
+    "    if (!container) return;",
+    "    if (!rows.length) {",
+    "      container.innerHTML = '<div class=\"bar\"><div class=\"mini\">No data</div></div>';",
+    "      return;",
+    "    }",
+    "    container.innerHTML = '<table><thead><tr>' + columns.map(function (column) { return '<th>' + column + '</th>'; }).join('') + '</tr></thead><tbody>' + rows.map(function (row) { return '<tr>' + row.map(function (cell) { return '<td>' + cell + '</td>'; }).join('') + '</tr>'; }).join('') + '</tbody></table>';",
+    "  }",
+    "",
+    "  function renderOllama(snapshot) {",
+    "    var running = snapshot.ollama && snapshot.ollama.running || [];",
+    "    var installed = snapshot.ollama && snapshot.ollama.installed || [];",
+    "    return [",
+    "      '<div class=\"table-wrap\" id=\"ollama-running\"></div>',",
+    "      '<div class=\"table-wrap\" id=\"ollama-installed\"></div>'",
+    "    ].join('');",
+    "  }",
+    "",
+    "  function renderProcesses(snapshot) {",
+    "    return '<div class=\"table-wrap\" id=\"processes-table\"></div>';",
+    "  }",
+    "",
+    "  function renderResources(snapshot) {",
+    "    var disk = snapshot.disk && snapshot.disk.filesystems || [];",
+    "    var network = snapshot.network && snapshot.network.traffic || [];",
+    "    var diskMarkup = disk.length ? disk.map(function (item) {",
+    "      var percent = typeof item.usagePercent === 'number' ? clamp(item.usagePercent, 0, 100) : 0;",
+    "      return '<div class=\"bar\"><div>' + item.mount + '</div><div class=\"track\"><div class=\"fill\" style=\"width:' + percent + '%\"></div></div><div class=\"mini\">' + fmtPct(item.usagePercent) + '</div></div>';",
+    "    }).join('') : '<div class=\"bar\"><div class=\"mini\">No data</div></div>';",
+    "    var networkMarkup = network.length ? network.map(function (item) {",
+    "      return '<div class=\"bar\"><div>' + item.interface + '</div><div class=\"track\"><div class=\"fill\" style=\"width:' + clamp(item.rxBytesPerSec / 1000000 * 10, 0, 100) + '%; background: linear-gradient(90deg, var(--accent-2), var(--accent));\"></div></div><div class=\"mini\">' + fmtNum(item.rxBytesPerSec) + ' B/s</div></div>';",
+    "    }).join('') : '<div class=\"bar\"><div class=\"mini\">No data</div></div>';",
+    "    return '<div class=\"stack\"><div class=\"table-wrap\"><div class=\"mini\" style=\"padding:10px 12px;\">Disk usage</div>' + diskMarkup + '</div><div class=\"table-wrap\"><div class=\"mini\" style=\"padding:10px 12px;\">Network traffic</div>' + networkMarkup + '</div></div>';",
+    "  }",
+    "",
+    "  function widgetShell(item, content) {",
+    "    var meta = WIDGETS[item.id];",
+    "    return '<article class=\"widget\" draggable=\"true\" data-id=\"' + item.id + '\" data-cols=\"' + item.cols + '\" data-rows=\"' + item.rows + '\">' +",
+    "      '<header class=\"widget-header\">' +",
+    "      '<div class=\"drag-handle\" title=\"Drag to reorder\">&#8942;&#8942;</div>' +",
+    "      '<div class=\"widget-title\"><h3>' + meta.title + '</h3><p>' + meta.description + '</p></div>' +",
+    "      '<div class=\"widget-actions\">' +",
+    "      '<button type=\"button\" data-action=\"left\" aria-label=\"Move left\">&#8592;</button>' +",
+    "      '<button type=\"button\" data-action=\"right\" aria-label=\"Move right\">&#8594;</button>' +",
+    "      '<button type=\"button\" data-action=\"shrink\" aria-label=\"Shrink\">&#8722;</button>' +",
+    "      '<button type=\"button\" data-action=\"grow\" aria-label=\"Grow\">&#43;</button>' +",
+    "      '<button type=\"button\" data-action=\"shorter\" aria-label=\"Shorter\">&#8595;</button>' +",
+    "      '<button type=\"button\" data-action=\"taller\" aria-label=\"Taller\">&#8593;</button>' +",
+    "      '</div>' +",
+    "      '</header>' +",
+    "      '<div class=\"widget-body\">' + content + '</div>' +",
+    "      '<div class=\"resize-handle\" title=\"Resize\"></div>' +",
+    "    '</article>';",
+    "  }",
+    "",
+    "  function renderWidget(item, snapshot) {",
+    "    if (item.id === 'overview') return widgetShell(item, renderOverview(snapshot));",
+    "    if (item.id === 'analysis') return widgetShell(item, renderAnalysis(snapshot));",
+    "    if (item.id === 'trends') return widgetShell(item, renderTrendCanvases());",
+    "    if (item.id === 'ollama') {",
+    "      var runningRows = (snapshot.ollama && snapshot.ollama.running || []).map(function (entry) { return [entry.name, entry.processorSplit || 'n/a', entry.context || 'n/a', entry.expiresAt || 'n/a']; });",
+    "      var installedRows = (snapshot.ollama && snapshot.ollama.installed || []).map(function (entry) { return [entry.name, entry.contextLength || 'n/a', entry.architecture || 'n/a', entry.license || 'n/a']; });",
+    "      return widgetShell(item, '<div class=\"table-wrap\" id=\"ollama-running\"></div><div class=\"table-wrap\" id=\"ollama-installed\"></div>');",
+    "    }",
+    "    if (item.id === 'processes') return widgetShell(item, '<div class=\"table-wrap\" id=\"processes-table\"></div>');",
+    "    if (item.id === 'resources') return widgetShell(item, renderResources(snapshot));",
+    "    return widgetShell(item, '<div class=\"mini\">No renderer available.</div>');",
+    "  }",
+    "",
+    "  function drawChart(canvas, points, key, color) {",
+    "    if (!canvas || !points.length) return;",
+    "    var ratio = window.devicePixelRatio || 1;",
+    "    var width = canvas.clientWidth * ratio;",
+    "    var height = canvas.clientHeight * ratio;",
+    "    canvas.width = width;",
+    "    canvas.height = height;",
+    "    var ctx = canvas.getContext('2d');",
+    "    if (!ctx) return;",
+    "    ctx.clearRect(0, 0, width, height);",
+    "    ctx.fillStyle = 'rgba(4, 10, 18, 0.7)';",
+    "    ctx.fillRect(0, 0, width, height);",
+    "    ctx.strokeStyle = 'rgba(148, 163, 184, 0.14)';",
+    "    ctx.lineWidth = 1;",
+    "    for (var i = 0; i <= 4; i += 1) {",
+    "      var yGrid = (height / 4) * i;",
+    "      ctx.beginPath();",
+    "      ctx.moveTo(0, yGrid);",
+    "      ctx.lineTo(width, yGrid);",
+    "      ctx.stroke();",
+    "    }",
+    "    var values = points.map(function (point) { return typeof point[key] === 'number' ? Number(point[key]) : null; }).filter(function (value) { return value !== null; });",
+    "    if (!values.length) return;",
+    "    var max = Math.max.apply(Math, values.concat([1]));",
+    "    var min = Math.min.apply(Math, values.concat([0]));",
+    "    var span = Math.max(1, max - min);",
+    "    ctx.strokeStyle = color;",
+    "    ctx.lineWidth = 2 * ratio;",
+    "    ctx.beginPath();",
+    "    points.forEach(function (point, index) {",
+    "      var value = typeof point[key] === 'number' ? Number(point[key]) : min;",
+    "      var x = points.length === 1 ? width / 2 : (index / (points.length - 1)) * width;",
+    "      var y = height - ((value - min) / span) * (height - 24) - 12;",
+    "      if (index === 0) { ctx.moveTo(x, y); } else { ctx.lineTo(x, y); }",
+    "    });",
+    "    ctx.stroke();",
+    "  }",
+    "",
+    "  function renderCharts(snapshot) {",
+    "    var points = snapshot.history && snapshot.history.last10Minutes || [];",
+    "    drawChart(byId('chart-cpu'), points, 'cpuUsage', '#7dd3fc');",
+    "    drawChart(byId('chart-ram'), points, 'ramUsedBytes', '#34d399');",
+    "    drawChart(byId('chart-gpu'), points, 'gpuUsagePercent', '#8b5cf6');",
+    "    drawChart(byId('chart-temp'), points, 'temperatureCelsius', '#f59e0b');",
+    "  }",
+    "",
+    "  function renderTables(snapshot) {",
+    "    renderTable('ollama-running', ['Model', 'Processor', 'Context', 'Expires'], (snapshot.ollama && snapshot.ollama.running || []).map(function (item) { return [item.name, item.processorSplit || 'n/a', item.context || 'n/a', item.expiresAt || 'n/a']; }));",
+    "    renderTable('ollama-installed', ['Installed', 'Context', 'Architecture', 'License'], (snapshot.ollama && snapshot.ollama.installed || []).map(function (item) { return [item.name, item.contextLength || 'n/a', item.architecture || 'n/a', item.license || 'n/a']; }));",
+    "    renderTable('processes-table', ['PID', 'Process', 'CPU', 'RAM', 'GPU'], (snapshot.processes && snapshot.processes.processes || []).map(function (item) { return [item.pid, item.command, fmtPct(item.cpuPercent), fmtBytes(item.ramBytes), item.gpuPercent === null || item.gpuPercent === undefined ? 'n/a' : fmtPct(item.gpuPercent)]; }));",
+    "  }",
+    "",
+    "  function renderWidgets(snapshot) {",
+    "    var grid = byId('dashboard-grid');",
+    "    grid.innerHTML = state.layout.map(function (item) { return widgetShell(item, item.id === 'overview' ? renderOverview(snapshot) : item.id === 'analysis' ? renderAnalysis(snapshot) : item.id === 'trends' ? renderTrendCanvases() : item.id === 'resources' ? renderResources(snapshot) : item.id === 'ollama' ? '<div class=\"table-wrap\" id=\"ollama-running\"></div><div class=\"table-wrap\" id=\"ollama-installed\"></div>' : item.id === 'processes' ? '<div class=\"table-wrap\" id=\"processes-table\"></div>' : '<div class=\"mini\">No renderer available.</div>'); }).join('');",
+    "    renderCharts(snapshot);",
+    "    renderTables(snapshot);",
+    "    attachInteractions();",
+    "  }",
+    "",
+    "  function updateStatus(snapshot) {",
+    "    var analysis = snapshot.analysis || [];",
+    "    var pill = byId('connection-pill');",
+    "    var bad = analysis.some(function (item) { return item.severity === 'critical'; });",
+    "    var warn = analysis.some(function (item) { return item.severity === 'warning'; });",
+    "    pill.className = 'pill ' + (bad ? 'pill-bad' : warn ? 'pill-warn' : 'pill-ok');",
+    "    pill.textContent = bad ? 'critical' : warn ? 'warning' : 'ok';",
+    "    byId('updated-at').textContent = 'updated ' + new Date(snapshot.timestamp).toLocaleString('en-US');",
+    "  }",
+    "",
+    "  function render(snapshot) {",
+    "    state.snapshot = snapshot;",
+    "    updateStatus(snapshot);",
+    "    renderWidgets(snapshot);",
+    "  }",
+    "",
+    "  function connect() {",
+    "    var protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';",
+    "    var socket = new WebSocket(protocol + '//' + window.location.host + '/ws');",
+    "    state.socket = socket;",
+    "    socket.onopen = function () { byId('connection-pill').className = 'pill pill-ok'; byId('connection-pill').textContent = 'online'; };",
+    "    socket.onclose = function () { byId('connection-pill').className = 'pill pill-warn'; byId('connection-pill').textContent = 'reconnecting'; setTimeout(connect, 1500); };",
+    "    socket.onerror = function () { byId('connection-pill').className = 'pill pill-bad'; byId('connection-pill').textContent = 'error'; };",
+    "    socket.onmessage = function (event) { try { render(JSON.parse(event.data)); } catch (_error) {} };",
+    "  }",
+    "",
+    "  function bootstrapThemeControls() {",
+    "    syncThemeControls();",
+    "    byId('theme-bg').addEventListener('input', function (event) { setTheme({ bg: event.target.value }); });",
+    "    byId('theme-panel').addEventListener('input', function (event) { setTheme({ panel: event.target.value }); });",
+    "    byId('theme-accent').addEventListener('input', function (event) { setTheme({ accent: event.target.value }); });",
+    "    byId('theme-accent-2').addEventListener('input', function (event) { setTheme({ accent2: event.target.value }); });",
+    "    byId('theme-text').addEventListener('input', function (event) { setTheme({ text: event.target.value }); });",
+    "    byId('theme-muted').addEventListener('input', function (event) { setTheme({ muted: event.target.value }); });",
+    "    byId('theme-radius').addEventListener('input', function (event) { setTheme({ radius: Number(event.target.value) }); });",
+    "    byId('preset-midnight').addEventListener('click', function () { setTheme({ bg: '#07111f', panel: '#0c1524', accent: '#7dd3fc', accent2: '#8b5cf6', text: '#e5eefb', muted: '#8ea0bd', radius: 14 }); });",
+    "    byId('preset-contrast').addEventListener('click', function () { setTheme({ bg: '#050816', panel: '#111827', accent: '#22d3ee', accent2: '#f472b6', text: '#f8fafc', muted: '#cbd5e1', radius: 10 }); });",
+    "    byId('reset-theme').addEventListener('click', function () { state.theme = Object.assign({}, DEFAULT_THEME); applyTheme(); saveTheme(); syncThemeControls(); });",
+    "    byId('reset-layout').addEventListener('click', function () { state.layout = DEFAULT_LAYOUT.map(function (item) { return Object.assign({}, item); }); saveLayout(); if (state.snapshot) render(state.snapshot); });",
+    "  }",
+    "",
+    "  function attachInteractions() {",
+    "    var grid = byId('dashboard-grid');",
+    "    grid.querySelectorAll('.widget').forEach(function (widget) {",
+    "      var id = widget.getAttribute('data-id');",
+    "      var header = widget.querySelector('.drag-handle');",
+    "      var resizeHandle = widget.querySelector('.resize-handle');",
+    "      widget.querySelectorAll('button[data-action]').forEach(function (button) {",
+    "        button.addEventListener('click', function () {",
+    "          var action = button.getAttribute('data-action');",
+    "          if (action === 'left') moveWidget(id, -1);",
+    "          if (action === 'right') moveWidget(id, 1);",
+    "          if (action === 'shrink') resizeWidget(id, -1, 0);",
+    "          if (action === 'grow') resizeWidget(id, 1, 0);",
+    "          if (action === 'shorter') resizeWidget(id, 0, -1);",
+    "          if (action === 'taller') resizeWidget(id, 0, 1);",
+    "        });",
+    "      });",
+    "",
+    "      widget.addEventListener('dragover', function (event) { event.preventDefault(); widget.classList.add('drag-over'); });",
+    "      widget.addEventListener('dragleave', function () { widget.classList.remove('drag-over'); });",
+    "      widget.addEventListener('drop', function (event) {",
+    "        event.preventDefault();",
+    "        widget.classList.remove('drag-over');",
+    "        var draggedId = event.dataTransfer.getData('text/plain');",
+    "        if (!draggedId || draggedId === id) return;",
+    "        var targetIndex = state.layout.findIndex(function (entry) { return entry.id === id; });",
+    "        var draggedIndex = state.layout.findIndex(function (entry) { return entry.id === draggedId; });",
+    "        if (targetIndex < 0 || draggedIndex < 0) return;",
+    "        var dragged = state.layout.splice(draggedIndex, 1)[0];",
+    "        var rect = widget.getBoundingClientRect();",
+    "        var before = event.clientY < rect.top + rect.height / 2;",
+    "        var insertIndex = before ? targetIndex : targetIndex + (draggedIndex < targetIndex ? 0 : 1);",
+    "        if (draggedIndex < targetIndex) insertIndex -= 1;",
+    "        state.layout.splice(clamp(insertIndex, 0, state.layout.length), 0, dragged);",
+    "        saveLayout();",
+    "        if (state.snapshot) render(state.snapshot);",
+    "      });",
+    "",
+    "      widget.addEventListener('dragstart', function (event) {",
+    "        state.draggingId = id;",
+    "        event.dataTransfer.effectAllowed = 'move';",
+    "        event.dataTransfer.setData('text/plain', id);",
+    "      });",
+    "      widget.addEventListener('dragend', function () { state.draggingId = null; widget.classList.remove('drag-over'); });",
+    "",
+    "      resizeHandle.addEventListener('pointerdown', function (event) {",
+    "        event.preventDefault();",
+    "        var item = state.layout.find(function (entry) { return entry.id === id; });",
+    "        if (!item) return;",
+    "        var gridRect = grid.getBoundingClientRect();",
+    "        state.resizing = {",
+    "          id: id,",
+    "          startX: event.clientX,",
+    "          startY: event.clientY,",
+    "          startCols: item.cols,",
+    "          startRows: item.rows,",
+    "          cellWidth: gridRect.width / 12,",
+    "          cellHeight: 28",
+    "        };",
+    "        resizeHandle.setPointerCapture(event.pointerId);",
+    "      });",
+    "    });",
+    "",
+    "    document.addEventListener('pointermove', function (event) {",
+    "      if (!state.resizing) return;",
+    "      var item = state.layout.find(function (entry) { return entry.id === state.resizing.id; });",
+    "      if (!item) return;",
+    "      var colsDelta = Math.round((event.clientX - state.resizing.startX) / Math.max(48, state.resizing.cellWidth / 2));",
+    "      var rowsDelta = Math.round((event.clientY - state.resizing.startY) / state.resizing.cellHeight);",
+    "      item.cols = clamp(state.resizing.startCols + colsDelta, 2, 12);",
+    "      item.rows = clamp(state.resizing.startRows + rowsDelta, 2, 8);",
+    "      saveLayout();",
+    "      if (state.snapshot) render(state.snapshot);",
+    "    });",
+    "",
+    "    document.addEventListener('pointerup', function () { state.resizing = null; });",
+    "  }",
+    "",
+    "  function bootstrap() {",
+    "    applyTheme();",
+    "    bootstrapThemeControls();",
+    "    render({",
+    "      timestamp: new Date().toISOString(),",
+    "      cpu: null, ram: null, swap: null, gpu: null, disk: null, network: null, temperatures: null, ollama: null, llamacpp: null, processes: null, history: { last60Seconds: [], last10Minutes: [], lastHour: [] }, analysis: []",
+    "    });",
+    "    fetch('/metrics', { cache: 'no-store' }).then(function (response) { return response.ok ? response.json() : null; }).then(function (payload) { if (payload) render(payload); }).catch(function () {});",
+    "    connect();",
+    "  }",
+    "",
+    "  bootstrap();",
+    "})();"
+  ].join('\\n');
 }
