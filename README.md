@@ -24,6 +24,21 @@ Run without installing:
 npx midnight-monitor
 ```
 
+## Access
+
+Start the daemon and open the dashboard in a browser:
+
+```bash
+midnight-monitor start
+```
+
+Then visit:
+
+- `http://127.0.0.1:9898/` when the monitor runs on your own machine
+- `http://<server-ip>:9898/` when the monitor runs on another host
+
+The default HTTP port is `9898`. If you change it in `midnight-monitor.config.json`, use that port instead.
+
 ## CLI
 
 ```bash
@@ -113,6 +128,8 @@ Open `http://127.0.0.1:9898/` to see the visual monitor with:
 - restore defaults for theme and layout
 - draggable and resizable widgets
 - warning, critical, and info analysis badges
+
+![Midnight LLM Monitor dashboard](docs/monitor.png)
 
 ## Example payload
 
