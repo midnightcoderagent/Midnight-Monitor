@@ -89,6 +89,51 @@ async function readLinuxSysfsVram(): Promise<GpuMetrics["vram"] | null> {
   return null;
 }
 
+async function readLinuxSysfsGpuStats(): Promise<Pick<GpuMetrics, "usagePercent" | "temperatureCelsius"> | null> {
+  try {
+    const cards = await readdir("/sys/class/drm", { withFileTypes: true });
+    for (const entry of cards) {
+      if (!entry.name.startsWith("card")) {
+        continue;
+      }
+      const devicePath = `/sys/class/drm/${entry.name}/device`;
+      try {
+        const [busy, temperature] = await Promise.all([
+          readFile(`${devicePath}/gpu_busy_percent`, "utf8").catch(() => null),
+          readdir(`${devicePath}/hwmon`, { withFileTypes: true })
+            .then(async (hwmons) => {
+              for (const hwmon of hwmons) {
+                if (!hwmon.name.startsWith("hwmon")) {
+                  continue;
+                }
+                const temperatureFile = `${devicePath}/hwmon/${hwmon.name}/temp1_input`;
+                const value = await readFile(temperatureFile, "utf8").catch(() => null);
+                if (value !== null) {
+                  return value;
+                }
+              }
+              return null;
+            })
+            .catch(() => null)
+        ]);
+        const usagePercent = parseNumber(busy ?? undefined);
+        const temperatureCelsius = parseNumber(temperature ?? undefined);
+        if (usagePercent !== null || temperatureCelsius !== null) {
+          return {
+            usagePercent,
+            temperatureCelsius: temperatureCelsius !== null ? temperatureCelsius / 1000 : null
+          };
+        }
+      } catch {
+        // Try next card.
+      }
+    }
+  } catch {
+    // Not Linux or not accessible.
+  }
+  return null;
+}
+
 async function queryNvidiaSmi(): Promise<NvidiaSnapshot | null> {
   const result = await runCommand(
     "nvidia-smi",
@@ -213,11 +258,14 @@ async function querySystemInformationGpu(): Promise<GpuMetrics | null> {
 
 async function collectGpu(): Promise<GpuMetrics | null> {
   const sysfsVram = await readLinuxSysfsVram();
+  const sysfsStats = await readLinuxSysfsGpuStats();
 
   const nvidia = await queryNvidiaSmi();
   if (nvidia) {
     return {
       ...nvidia,
+      usagePercent: nvidia.usagePercent ?? sysfsStats?.usagePercent ?? null,
+      temperatureCelsius: nvidia.temperatureCelsius ?? sysfsStats?.temperatureCelsius ?? null,
       vram: sysfsVram ?? nvidia.vram ?? null
     };
   }
@@ -226,6 +274,8 @@ async function collectGpu(): Promise<GpuMetrics | null> {
   if (rocm) {
     return {
       ...rocm,
+      usagePercent: rocm.usagePercent ?? sysfsStats?.usagePercent ?? null,
+      temperatureCelsius: rocm.temperatureCelsius ?? sysfsStats?.temperatureCelsius ?? null,
       vram: rocm.vram ?? sysfsVram ?? null
     };
   }
@@ -235,6 +285,8 @@ async function collectGpu(): Promise<GpuMetrics | null> {
     if (systeminfo) {
       return {
         ...systeminfo,
+        usagePercent: systeminfo.usagePercent ?? sysfsStats?.usagePercent ?? null,
+        temperatureCelsius: systeminfo.temperatureCelsius ?? sysfsStats?.temperatureCelsius ?? null,
         vram: sysfsVram ?? systeminfo.vram ?? null
       };
     }
@@ -247,8 +299,8 @@ async function collectGpu(): Promise<GpuMetrics | null> {
       vendor: "unknown",
       model: "unknown",
       driver: null,
-      usagePercent: null,
-      temperatureCelsius: null,
+      usagePercent: sysfsStats?.usagePercent ?? null,
+      temperatureCelsius: sysfsStats?.temperatureCelsius ?? null,
       powerWatts: null,
       clockMhz: null,
       encoderPercent: null,
