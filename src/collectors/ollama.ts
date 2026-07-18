@@ -12,16 +12,6 @@ const showCache = new Map<string, OllamaShowCache>();
 
 function parseProcessorSplit(processorSplit: string): { cpuPercent: number | null; gpuPercent: number | null } {
   const normalized = processorSplit.trim();
-  const cpuMatch = normalized.match(/(\d+(?:\.\d+)?)%\s*(?:.*\b)?CPU\b/i);
-  const gpuMatch = normalized.match(/(\d+(?:\.\d+)?)%\s*(?:.*\b)?GPU\b/i);
-
-  if (cpuMatch || gpuMatch) {
-    return {
-      cpuPercent: cpuMatch ? Number(cpuMatch[1]) : null,
-      gpuPercent: gpuMatch ? Number(gpuMatch[1]) : null
-    };
-  }
-
   const percentages = [...normalized.matchAll(/(\d+(?:\.\d+)?)%/g)].map((match) => Number(match[1])).filter((value) => Number.isFinite(value));
   if (percentages.length >= 2) {
     return {
