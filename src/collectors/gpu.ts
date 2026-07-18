@@ -59,7 +59,7 @@ async function readLinuxSysfsVram(): Promise<GpuMetrics["vram"] | null> {
   try {
     const cards = await readdir("/sys/class/drm", { withFileTypes: true });
     for (const entry of cards) {
-      if (!entry.isDirectory() || !entry.name.startsWith("card")) {
+      if (!entry.name.startsWith("card")) {
         continue;
       }
       const devicePath = `/sys/class/drm/${entry.name}/device`;

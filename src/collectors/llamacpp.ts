@@ -24,11 +24,12 @@ export const createLlamaCppCollector = createCollector<LlamaCppMetrics>("llamacp
   const processes = await si.processes();
   const running = processes.list
     .map((entry) => {
-      const command = String((entry as unknown as Record<string, unknown>).command ?? entry.params ?? entry.name ?? "");
-      if (!matchesLlamaCpp(command)) {
+      const raw = entry as unknown as Record<string, unknown>;
+      const commandLine = [String(raw.command ?? ""), String(raw.params ?? "")].filter((part) => part.length > 0).join(" ").trim();
+      if (!matchesLlamaCpp(commandLine)) {
         return null;
       }
-      return parseProcess(command, Number(entry.pid ?? 0));
+      return parseProcess(commandLine, Number(entry.pid ?? 0));
     })
     .filter((value): value is LlamaCppProcess => value !== null);
 
