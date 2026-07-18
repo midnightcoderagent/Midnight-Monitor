@@ -33,6 +33,7 @@ export function getDashboardHtml(): string {
           <div class="control-actions">
             <button id="preset-midnight" type="button">Midnight</button>
             <button id="preset-contrast" type="button">Contrast</button>
+            <button id="restore-defaults" type="button">Restore defaults</button>
             <button id="reset-theme" type="button">Reset theme</button>
             <button id="reset-layout" type="button">Reset layout</button>
           </div>
@@ -987,6 +988,7 @@ export function getDashboardJs(): string {
     "    byId('theme-radius').addEventListener('input', function (event) { setTheme({ radius: Number(event.target.value) }); });",
     "    byId('preset-midnight').addEventListener('click', function () { setTheme({ bg: '#07111f', panel: '#0c1524', accent: '#7dd3fc', accent2: '#8b5cf6', text: '#e5eefb', muted: '#8ea0bd', radius: 14 }); });",
     "    byId('preset-contrast').addEventListener('click', function () { setTheme({ bg: '#050816', panel: '#111827', accent: '#22d3ee', accent2: '#f472b6', text: '#f8fafc', muted: '#cbd5e1', radius: 10 }); });",
+    "    byId('restore-defaults').addEventListener('click', function () { state.theme = Object.assign({}, DEFAULT_THEME); state.layout = DEFAULT_LAYOUT.map(function (item) { return Object.assign({}, item); }); applyTheme(); saveTheme(); saveLayout(); syncThemeControls(); if (state.snapshot) render(state.snapshot); });",
     "    byId('reset-theme').addEventListener('click', function () { state.theme = Object.assign({}, DEFAULT_THEME); applyTheme(); saveTheme(); syncThemeControls(); });",
     "    byId('reset-layout').addEventListener('click', function () { state.layout = DEFAULT_LAYOUT.map(function (item) { return Object.assign({}, item); }); saveLayout(); if (state.snapshot) render(state.snapshot); });",
     "  }",
