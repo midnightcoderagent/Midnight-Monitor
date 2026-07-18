@@ -52,7 +52,7 @@ function parseRunning(output: string): OllamaRunningModel[] {
     if (columns.length < 4) {
       continue;
     }
-    const [name, id, processorSplit, size, expiresAt, context] = columns;
+    const [name, id, size, processorSplit, context, expiresAt] = columns;
     const split = parseProcessorSplit(processorSplit);
     rows.push({
       name,
@@ -86,7 +86,7 @@ function parseModelList(output: string): Array<{ name: string; size?: string; mo
 function parseShow(output: string, model: string): OllamaModelInfo {
   const parameters = new Map<string, string>();
   for (const line of toLines(output)) {
-    const match = line.match(/^([^:]+):\s*(.*)$/);
+    const match = line.match(/^\s{2,}([a-z][a-z ]+?)\s{2,}(.+)$/i);
     if (match) {
       parameters.set(match[1].trim().toLowerCase(), match[2].trim());
     }
@@ -100,10 +100,10 @@ function parseShow(output: string, model: string): OllamaModelInfo {
   return {
     name: model,
     contextLength: contextLength ? Number(contextLength) || null : null,
+    parameters: Object.fromEntries(parameters.entries()),
     quantization: quantization ?? null,
     architecture: architecture ?? null,
-    license: license ?? null,
-    parameters: Object.fromEntries(parameters.entries())
+    license: license ?? null
   };
 }
 

@@ -24,7 +24,7 @@ export const createLlamaCppCollector = createCollector<LlamaCppMetrics>("llamacp
   const processes = await si.processes();
   const running = processes.list
     .map((entry) => {
-      const command = String(entry.params ?? entry.name ?? "");
+      const command = String((entry as unknown as Record<string, unknown>).command ?? entry.params ?? entry.name ?? "");
       if (!matchesLlamaCpp(command)) {
         return null;
       }
@@ -34,4 +34,3 @@ export const createLlamaCppCollector = createCollector<LlamaCppMetrics>("llamacp
 
   return { running };
 });
-

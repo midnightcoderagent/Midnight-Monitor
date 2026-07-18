@@ -182,9 +182,9 @@ async function querySystemInformationGpu(): Promise<GpuMetrics | null> {
       null;
     if (totalBytes !== null || usedBytes !== null || freeBytes !== null) {
       return {
-        totalBytes: totalBytes !== null ? Math.round(totalBytes) : null,
-        usedBytes: usedBytes !== null ? Math.round(usedBytes) : null,
-        freeBytes: freeBytes !== null ? Math.round(freeBytes) : null
+        totalBytes: totalBytes !== null ? Math.round(totalBytes * 1024 * 1024) : null,
+        usedBytes: usedBytes !== null ? Math.round(usedBytes * 1024 * 1024) : null,
+        freeBytes: freeBytes !== null ? Math.round(freeBytes * 1024 * 1024) : null
       };
     }
     return null;
@@ -212,14 +212,18 @@ async function querySystemInformationGpu(): Promise<GpuMetrics | null> {
 }
 
 async function collectGpu(): Promise<GpuMetrics | null> {
+  const sysfsVram = await readLinuxSysfsVram();
+
   const nvidia = await queryNvidiaSmi();
   if (nvidia) {
-    return nvidia;
+    return {
+      ...nvidia,
+      vram: sysfsVram ?? nvidia.vram ?? null
+    };
   }
 
   const rocm = await queryRocmSmi();
   if (rocm) {
-    const sysfsVram = await readLinuxSysfsVram();
     return {
       ...rocm,
       vram: rocm.vram ?? sysfsVram ?? null
@@ -229,17 +233,15 @@ async function collectGpu(): Promise<GpuMetrics | null> {
   try {
     const systeminfo = await querySystemInformationGpu();
     if (systeminfo) {
-      const sysfsVram = await readLinuxSysfsVram();
       return {
         ...systeminfo,
-        vram: systeminfo.vram ?? sysfsVram ?? null
+        vram: sysfsVram ?? systeminfo.vram ?? null
       };
     }
   } catch {
     // Ignore and fall through to sysfs-only fallback.
   }
 
-  const sysfsVram = await readLinuxSysfsVram();
   if (sysfsVram) {
     return {
       vendor: "unknown",
