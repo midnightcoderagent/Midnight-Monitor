@@ -4,6 +4,14 @@ Midnight LLM Monitor is a lightweight hardware intelligence daemon for machines 
 
 It exposes live metrics over REST and WebSocket so Midnight Coder can make decisions from real hardware state instead of guesses.
 
+## Current focus
+
+- GPU and VRAM visibility in the overview
+- Ollama running model CPU/GPU split, context usage, and model metadata
+- llama.cpp process discovery and model path/context hints
+- low-overhead polling with cached expensive collectors
+- plugin discovery for third-party collectors
+
 ## Install
 
 ```bash
@@ -92,31 +100,57 @@ socket.onmessage = (event) => {
 
 ## Web Monitor
 
-Abra `http://127.0.0.1:9898/` para ver o painel visual com:
+Open `http://127.0.0.1:9898/` to see the visual monitor with:
 
-- resumo de CPU, RAM, swap, GPU, VRAM, disco, rede e temperatura
-- histórico em tempo real
-- modelos Ollama em execução e instalados
-- processos mais pesados
-- alertas de análise com cores por severidade
+- a GPU/VRAM-first overview for quick capacity checks
+- live CPU, RAM, swap, disk, network, and temperature cards
+- Ollama running models with CPU %, GPU %, context, context limit, and size
+- installed Ollama models with architecture and quantization
+- llama.cpp process detection with model path and context hints
+- top resource-consuming processes
+- history charts for recent pressure and speed changes
+- a gear menu for appearance settings
+- restore defaults for theme and layout
+- draggable and resizable widgets
+- warning, critical, and info analysis badges
 
 ## Example payload
 
 ```json
 {
   "timestamp": "2026-07-17T12:00:00.000Z",
-  "cpu": { "usage": 32, "cores": 8 },
-  "ram": { "usedBytes": 123456789, "totalBytes": 17179869184 },
-  "swap": { "usedBytes": 0, "totalBytes": 34359738368 },
+  "cpu": { "usage": 32, "cores": 8, "threads": 16, "frequencyMhz": 4300 },
+  "ram": { "usedBytes": 123456789, "totalBytes": 17179869184, "usagePercent": 41.2 },
+  "swap": { "usedBytes": 0, "totalBytes": 34359738368, "usagePercent": 0 },
   "gpu": {
-    "vendor": "NVIDIA",
-    "model": "RTX 4090",
+    "vendor": "AMD",
+    "model": "Radeon RX 580",
     "usagePercent": 91,
     "temperatureCelsius": 72,
-    "vram": { "usedBytes": 21500000000, "totalBytes": 25769803776 }
+    "vram": { "usedBytes": 7488270336, "totalBytes": 8589934592, "freeBytes": 1101664256 }
   },
-  "ollama": { "running": [], "installed": [] },
-  "analysis": []
+  "ollama": {
+    "running": [
+      {
+        "name": "midnightcoderagent/MidnightCoder-30B:latest",
+        "cpuPercent": 59,
+        "gpuPercent": 41,
+        "context": 32768,
+        "contextLength": 262144,
+        "quantization": "IQ2_M",
+        "architecture": "qwen3moe"
+      }
+    ],
+    "installed": []
+  },
+  "llamacpp": { "running": [] },
+  "analysis": [
+    {
+      "severity": "warning",
+      "source": "gpu.vram",
+      "message": "VRAM almost full. Model may spill into RAM."
+    }
+  ]
 }
 ```
 
@@ -185,3 +219,4 @@ Third-party packages can export a `createCollector`-style factory and be enabled
 3. Use `npm run typecheck`, `npm run lint`, and `npm test`.
 4. Keep collectors isolated and failure-tolerant.
 5. Include tests for parsing and analysis changes.
+6. If a change needs a new dependency, add it to `package.json` and update the lockfile before opening a PR.

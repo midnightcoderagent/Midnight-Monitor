@@ -7,6 +7,9 @@
   "bin": {
     "midnight-monitor": "./dist/index.js"
   },
+  "publishConfig": {
+    "access": "public"
+  },
   "files": [
     "dist",
     "README.md",
