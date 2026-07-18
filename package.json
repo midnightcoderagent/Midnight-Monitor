@@ -1,11 +1,11 @@
 {
   "name": "midnight-monitor",
-  "version": "0.1.0",
+  "version": "1.0.1",
   "description": "Midnight LLM Monitor for local LLM server hardware intelligence.",
   "type": "module",
   "main": "./dist/index.js",
   "bin": {
-    "midnight-monitor": "./dist/index.js"
+    "midnight-monitor": "dist/index.js"
   },
   "publishConfig": {
     "access": "public"
@@ -16,7 +16,7 @@
     "midnight-monitor.config.json"
   ],
   "engines": {
-    "node": ">=22"
+    "node": ">=20"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",

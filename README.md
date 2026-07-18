@@ -14,6 +14,8 @@ It exposes live metrics over REST and WebSocket so Midnight Coder can make decis
 
 ## Install
 
+Requires Node.js 20 or newer.
+
 ```bash
 npm install -g midnight-monitor
 ```
@@ -50,6 +52,29 @@ midnight-monitor doctor
 midnight-monitor benchmark
 ```
 
+`midnight-monitor` without arguments prints help. Use `midnight-monitor start` to start the daemon.
+
+## Release
+
+Releases are published from GitHub Actions, not from a local `npm publish`.
+
+Prerequisites:
+
+- GitHub repository secret `NPM_TOKEN` must contain an npm automation token with publish access to `midnight-monitor`.
+- Commits merged to `main` must use Conventional Commits so `semantic-release` can decide the next version.
+
+Publish flow:
+
+```bash
+npm run typecheck
+npm run lint
+npm test
+npm run build
+git push origin main
+```
+
+The `Release` workflow runs `npx semantic-release`, creates the GitHub release, and publishes the package to npm.
+
 ## Configuration
 
 Create `midnight-monitor.config.json` in the working directory.
@@ -62,7 +87,19 @@ Create `midnight-monitor.config.json` in the working directory.
     "wsPath": "/ws"
   },
   "collectors": {
-    "enabled": ["cpu", "ram", "swap", "gpu", "disk", "network", "temperatures", "processes", "ollama", "llamacpp", "history"],
+    "enabled": [
+      "cpu",
+      "ram",
+      "swap",
+      "gpu",
+      "disk",
+      "network",
+      "temperatures",
+      "processes",
+      "ollama",
+      "llamacpp",
+      "history"
+    ],
     "modules": []
   },
   "intervals": {
@@ -137,14 +174,22 @@ Open `http://127.0.0.1:9898/` to see the visual monitor with:
 {
   "timestamp": "2026-07-17T12:00:00.000Z",
   "cpu": { "usage": 32, "cores": 8, "threads": 16, "frequencyMhz": 4300 },
-  "ram": { "usedBytes": 123456789, "totalBytes": 17179869184, "usagePercent": 41.2 },
+  "ram": {
+    "usedBytes": 123456789,
+    "totalBytes": 17179869184,
+    "usagePercent": 41.2
+  },
   "swap": { "usedBytes": 0, "totalBytes": 34359738368, "usagePercent": 0 },
   "gpu": {
     "vendor": "AMD",
     "model": "Radeon RX 580",
     "usagePercent": 91,
     "temperatureCelsius": 72,
-    "vram": { "usedBytes": 7488270336, "totalBytes": 8589934592, "freeBytes": 1101664256 }
+    "vram": {
+      "usedBytes": 7488270336,
+      "totalBytes": 8589934592,
+      "freeBytes": 1101664256
+    }
   },
   "ollama": {
     "running": [
@@ -221,10 +266,10 @@ Collectors are discovered from the built-in `src/collectors/` directory and can 
 Each collector implements:
 
 ```ts
-initialize(context)
-collect(context)
-health()
-dispose()
+initialize(context);
+collect(context);
+health();
+dispose();
 ```
 
 Third-party packages can export a `createCollector`-style factory and be enabled in `midnight-monitor.config.json`.

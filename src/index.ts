@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 import { readFile, writeFile, unlink } from "node:fs/promises";
 import { resolve } from "node:path";
 import process from "node:process";
@@ -19,10 +20,30 @@ interface CliState {
 
 function parseArgs(argv: string[]): CliState {
   const [, , ...rest] = argv;
-  const command = rest[0] && !rest[0].startsWith("-") ? rest[0] : "start";
-  const configIndex = rest.findIndex((arg) => arg === "--config" || arg === "-c");
+  const command =
+    rest.includes("--help") || rest.includes("-h")
+      ? "help"
+      : rest[0] && !rest[0].startsWith("-")
+        ? rest[0]
+        : "help";
+  const configIndex = rest.findIndex(
+    (arg) => arg === "--config" || arg === "-c"
+  );
   const configPath = configIndex >= 0 ? rest[configIndex + 1] : undefined;
   return { command, configPath };
+}
+
+function printHelp(): void {
+  console.log(`Midnight Monitor
+
+Usage:
+  midnight-monitor start [--config path]   Start the monitor daemon
+  midnight-monitor stop [--config path]    Stop the monitor daemon
+  midnight-monitor status [--config path]  Show daemon status
+  midnight-monitor doctor                  Check local runtime support
+  midnight-monitor benchmark               Run a small local benchmark
+  midnight-monitor --help                   Show this help
+`);
 }
 
 async function ensurePidFile(pidFile: string, pid: number): Promise<void> {
@@ -70,8 +91,13 @@ async function startService(configPath?: string): Promise<void> {
     });
   });
 
-  await ensurePidFile(resolve(process.cwd(), config.server.pidFile), process.pid);
-  logger.info(`Midnight Monitor listening on http://${config.server.host}:${config.server.port}`);
+  await ensurePidFile(
+    resolve(process.cwd(), config.server.pidFile),
+    process.pid
+  );
+  logger.info(
+    `Midnight Monitor listening on http://${config.server.host}:${config.server.port}`
+  );
 
   const shutdown = async () => {
     await monitor.stop();
@@ -91,7 +117,19 @@ async function startService(configPath?: string): Promise<void> {
 }
 
 async function spawnDetached(configPath?: string): Promise<void> {
-  const entry = process.argv[1] ?? new URL("./index.js", import.meta.url).pathname;
+  const config = await loadConfig(process.cwd(), configPath);
+  const pidFile = resolve(process.cwd(), config.server.pidFile);
+  const existingPid = await readPid(pidFile);
+  if (existingPid && (await isAlive(existingPid))) {
+    console.log(`midnight-monitor is already running (${existingPid})`);
+    return;
+  }
+  if (existingPid) {
+    await removePidFile(pidFile);
+  }
+
+  const entry =
+    process.argv[1] ?? new URL("./index.js", import.meta.url).pathname;
   const useTsx = entry.endsWith(".ts");
   const command = useTsx ? "tsx" : process.execPath;
   const args = [entry, "serve"];
@@ -134,7 +172,9 @@ async function statusService(configPath?: string): Promise<void> {
   let health = "down";
   if (alive) {
     try {
-      const response = await fetch(`http://${config.server.host}:${config.server.port}/health`);
+      const response = await fetch(
+        `http://${config.server.host}:${config.server.port}/health`
+      );
       if (response.ok) {
         health = "ok";
       }
@@ -146,13 +186,15 @@ async function statusService(configPath?: string): Promise<void> {
 }
 
 async function doctor(): Promise<void> {
-  const systemInformation = si as typeof si & {
-    memSwap: () => Promise<{ total?: number; used?: number; free?: number }>;
-  };
-  const checks: Array<{ name: string; status: "ok" | "warn" | "fail"; detail: string }> = [];
+  const checks: Array<{
+    name: string;
+    status: "ok" | "warn" | "fail";
+    detail: string;
+  }> = [];
   checks.push({
     name: "node",
-    status: process.versions.node.startsWith("22.") || Number(process.versions.node.split(".")[0] ?? 0) >= 22 ? "ok" : "fail",
+    status:
+      Number(process.versions.node.split(".")[0] ?? 0) >= 20 ? "ok" : "fail",
     detail: `Node ${process.versions.node}`
   });
 
@@ -163,33 +205,43 @@ async function doctor(): Promise<void> {
     detail: ollama.code === 0 ? ollama.stdout.trim() : "not installed"
   });
 
-  const swap = await systemInformation.memSwap().catch(() => null);
+  const memory = await si.mem().catch(() => null);
   checks.push({
     name: "swap",
-    status: swap && (swap.total ?? 0) > 0 ? "ok" : "warn",
-    detail: swap && (swap.total ?? 0) > 0 ? "enabled" : "not configured"
+    status: memory && memory.swaptotal > 0 ? "ok" : "warn",
+    detail: memory && memory.swaptotal > 0 ? "enabled" : "not configured"
   });
 
-  const memory = await si.mem().catch(() => null);
   checks.push({
     name: "ram",
     status: memory ? "ok" : "warn",
-    detail: memory ? `${Math.round((memory.total / 1024 / 1024 / 1024) * 10) / 10} GB` : "unknown"
+    detail: memory
+      ? `${Math.round((memory.total / 1024 / 1024 / 1024) * 10) / 10} GB`
+      : "unknown"
   });
 
   const graphics = await si.graphics().catch(() => null);
   checks.push({
     name: "gpu",
     status: graphics && graphics.controllers.length > 0 ? "ok" : "warn",
-    detail: graphics && graphics.controllers.length > 0 ? graphics.controllers[0]?.model ?? "detected" : "not detected"
+    detail:
+      graphics && graphics.controllers.length > 0
+        ? (graphics.controllers[0]?.model ?? "detected")
+        : "not detected"
   });
 
   const disk = await si.fsSize().catch(() => []);
-  const diskTotal = disk.reduce((sum, entry) => sum + Number(entry.size ?? 0), 0);
+  const diskTotal = disk.reduce(
+    (sum, entry) => sum + Number(entry.size ?? 0),
+    0
+  );
   checks.push({
     name: "disk",
     status: diskTotal > 0 ? "ok" : "warn",
-    detail: diskTotal > 0 ? `${Math.round((diskTotal / 1024 / 1024 / 1024) * 10) / 10} GB` : "unknown"
+    detail:
+      diskTotal > 0
+        ? `${Math.round((diskTotal / 1024 / 1024 / 1024) * 10) / 10} GB`
+        : "unknown"
   });
 
   console.log(JSON.stringify(checks, null, 2));
@@ -237,6 +289,9 @@ async function benchmark(): Promise<void> {
 async function main(): Promise<void> {
   const { command, configPath } = parseArgs(process.argv);
   switch (command) {
+    case "help":
+      printHelp();
+      return;
     case "serve":
       await startService(configPath);
       return;
@@ -253,8 +308,12 @@ async function main(): Promise<void> {
       await benchmark();
       return;
     case "start":
-    default:
       await spawnDetached(configPath);
+      return;
+    default:
+      console.error(`Unknown command: ${command}`);
+      printHelp();
+      process.exitCode = 1;
       return;
   }
 }
