@@ -10,6 +10,37 @@ interface OllamaShowCache {
 
 const showCache = new Map<string, OllamaShowCache>();
 
+function parseProcessorSplit(processorSplit: string): { cpuPercent: number | null; gpuPercent: number | null } {
+  const normalized = processorSplit.trim();
+  const cpuMatch = normalized.match(/(\d+(?:\.\d+)?)%\s*(?:.*\b)?CPU\b/i);
+  const gpuMatch = normalized.match(/(\d+(?:\.\d+)?)%\s*(?:.*\b)?GPU\b/i);
+
+  if (cpuMatch || gpuMatch) {
+    return {
+      cpuPercent: cpuMatch ? Number(cpuMatch[1]) : null,
+      gpuPercent: gpuMatch ? Number(gpuMatch[1]) : null
+    };
+  }
+
+  const percentages = [...normalized.matchAll(/(\d+(?:\.\d+)?)%/g)].map((match) => Number(match[1])).filter((value) => Number.isFinite(value));
+  if (percentages.length >= 2) {
+    return {
+      cpuPercent: percentages[0],
+      gpuPercent: percentages[1]
+    };
+  }
+  if (percentages.length === 1) {
+    if (/gpu/i.test(normalized)) {
+      return { cpuPercent: null, gpuPercent: percentages[0] };
+    }
+    if (/cpu/i.test(normalized)) {
+      return { cpuPercent: percentages[0], gpuPercent: null };
+    }
+  }
+
+  return { cpuPercent: null, gpuPercent: null };
+}
+
 function parseRunning(output: string): OllamaRunningModel[] {
   const lines = toLines(output);
   if (lines.length < 2) {
@@ -22,6 +53,7 @@ function parseRunning(output: string): OllamaRunningModel[] {
       continue;
     }
     const [name, id, processorSplit, size, expiresAt, context] = columns;
+    const split = parseProcessorSplit(processorSplit);
     rows.push({
       name,
       id,
@@ -29,8 +61,8 @@ function parseRunning(output: string): OllamaRunningModel[] {
       size,
       expiresAt: expiresAt ?? null,
       context: context ? Number(context) || null : null,
-      cpuPercent: processorSplit?.toLowerCase().includes("cpu") ? 100 : 0,
-      gpuPercent: processorSplit?.toLowerCase().includes("gpu") ? 100 : 0
+      cpuPercent: split.cpuPercent,
+      gpuPercent: split.gpuPercent
     });
   }
   return rows;
@@ -99,14 +131,19 @@ export const createOllamaCollector = createCollector<OllamaMetrics>("ollama", "o
   for (const model of installedBase.slice(0, 50)) {
     installed.push(await showModel(`ollama.show.${model.name}`, model.name));
   }
+  const installedByName = new Map(installed.map((item) => [item.name, item] as const));
 
   const enrichedRunning = running.map((row) => {
     const contextValue = row.context ?? null;
+    const modelInfo = installedByName.get(row.name);
     return {
       ...row,
       context: contextValue,
       size: row.size ?? null,
-      expiresAt: row.expiresAt ?? null
+      expiresAt: row.expiresAt ?? null,
+      contextLength: modelInfo?.contextLength ?? null,
+      quantization: modelInfo?.quantization ?? null,
+      architecture: modelInfo?.architecture ?? null
     };
   });
 

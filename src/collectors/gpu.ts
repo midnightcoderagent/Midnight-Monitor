@@ -1,4 +1,6 @@
 import si from "systeminformation";
+import { readFile } from "node:fs/promises";
+import { readdir } from "node:fs/promises";
 import type { GpuMetrics } from "../types/metrics.js";
 import { createCollector } from "./shared.js";
 import { runCommand } from "../utils/exec.js";
@@ -20,6 +22,71 @@ interface NvidiaSnapshot {
     freeBytes: number | null;
   } | null;
   processCount: number | null;
+}
+
+type NumericRecord = Record<string, unknown>;
+
+function parseNumber(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+  if (typeof value === "string") {
+    const parsed = Number(value.replace(/[^0-9.+-]/g, ""));
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+}
+
+function pickNumber(record: NumericRecord, keys: string[]): number | null {
+  for (const key of keys) {
+    const value = parseNumber(record[key]);
+    if (value !== null) {
+      return value;
+    }
+  }
+  return null;
+}
+
+function normalizeVendor(value: string | null | undefined): "NVIDIA" | "AMD" | "Intel" | string {
+  const normalized = (value ?? "").toLowerCase();
+  if (normalized.includes("nvidia")) return "NVIDIA";
+  if (normalized.includes("amd") || normalized.includes("ati") || normalized.includes("radeon")) return "AMD";
+  if (normalized.includes("intel")) return "Intel";
+  return value?.trim() || "unknown";
+}
+
+async function readLinuxSysfsVram(): Promise<GpuMetrics["vram"] | null> {
+  try {
+    const cards = await readdir("/sys/class/drm", { withFileTypes: true });
+    for (const entry of cards) {
+      if (!entry.isDirectory() || !entry.name.startsWith("card")) {
+        continue;
+      }
+      const devicePath = `/sys/class/drm/${entry.name}/device`;
+      try {
+        const [total, used, free] = await Promise.all([
+          readFile(`${devicePath}/mem_info_vram_total`, "utf8").catch(() => null),
+          readFile(`${devicePath}/mem_info_vram_used`, "utf8").catch(() => null),
+          readFile(`${devicePath}/mem_info_vram_free`, "utf8").catch(() => null)
+        ]);
+        const totalBytes = parseNumber(total ?? undefined);
+        const usedBytes = parseNumber(used ?? undefined);
+        const freeBytes = parseNumber(free ?? undefined);
+        if (totalBytes !== null || usedBytes !== null || freeBytes !== null) {
+          return {
+            totalBytes,
+            usedBytes,
+            freeBytes
+          };
+        }
+      } catch {
+        // Try next card.
+      }
+    }
+  } catch {
+    // Not Linux or not accessible.
+  }
+  return null;
 }
 
 async function queryNvidiaSmi(): Promise<NvidiaSnapshot | null> {
@@ -45,18 +112,18 @@ async function queryNvidiaSmi(): Promise<NvidiaSnapshot | null> {
   const [model, driver, usage, temperature, power, clock, total, used, free, encoder, decoder] = columns;
   return {
     vendor: "NVIDIA",
-    model,
-    driver,
-    usagePercent: Number(usage) || null,
-    temperatureCelsius: Number(temperature) || null,
-    powerWatts: Number(power) || null,
-    clockMhz: Number(clock) || null,
-    encoderPercent: Number(encoder) || null,
-    decoderPercent: Number(decoder) || null,
+    model: model.trim(),
+    driver: driver.trim(),
+    usagePercent: parseNumber(usage),
+    temperatureCelsius: parseNumber(temperature),
+    powerWatts: parseNumber(power),
+    clockMhz: parseNumber(clock),
+    encoderPercent: parseNumber(encoder),
+    decoderPercent: parseNumber(decoder),
     vram: {
-      totalBytes: Number(total) * 1024 * 1024 || null,
-      usedBytes: Number(used) * 1024 * 1024 || null,
-      freeBytes: Number(free) * 1024 * 1024 || null
+      totalBytes: parseNumber(total) !== null ? parseNumber(total)! * 1024 * 1024 : null,
+      usedBytes: parseNumber(used) !== null ? parseNumber(used)! * 1024 * 1024 : null,
+      freeBytes: parseNumber(free) !== null ? parseNumber(free)! * 1024 * 1024 : null
     },
     processCount: null
   };
@@ -94,43 +161,52 @@ async function queryRocmSmi(): Promise<GpuMetrics | null> {
 
 async function querySystemInformationGpu(): Promise<GpuMetrics | null> {
   const graphics = await si.graphics();
-  const controller = graphics.controllers[0];
-  if (!controller) {
+  const controllers = graphics.controllers ?? [];
+  if (!controllers.length) {
     return null;
   }
+
+  const rawControllers = controllers as unknown as NumericRecord[];
+  const controller =
+    rawControllers.find((entry) => normalizeVendor(String(entry.vendor ?? "")).toLowerCase() !== "intel") ??
+    rawControllers[0];
+  const vram = (() => {
+    const totalBytes =
+      pickNumber(controller, ["vram", "vramTotal", "memoryTotal", "memoryTotalDedicated", "memory_total"]) ??
+      null;
+    const usedBytes =
+      pickNumber(controller, ["vramUsed", "vram_used", "memoryUsed", "memoryUsedDedicated", "memory_used"]) ??
+      null;
+    const freeBytes =
+      pickNumber(controller, ["vramFree", "vram_free", "memoryFree", "memoryFreeDedicated", "memory_free"]) ??
+      null;
+    if (totalBytes !== null || usedBytes !== null || freeBytes !== null) {
+      return {
+        totalBytes: totalBytes !== null ? Math.round(totalBytes) : null,
+        usedBytes: usedBytes !== null ? Math.round(usedBytes) : null,
+        freeBytes: freeBytes !== null ? Math.round(freeBytes) : null
+      };
+    }
+    return null;
+  })();
+
   return {
-    vendor: String(controller.vendor ?? "unknown"),
-    model: String(controller.model ?? "unknown"),
-    driver: controller.driverVersion ?? null,
+    vendor: normalizeVendor(String(controller.vendor ?? "unknown")),
+    model: String(controller.model ?? controller.name ?? "unknown"),
+    driver: typeof controller.driverVersion === "string" ? controller.driverVersion : null,
     usagePercent:
-      typeof controller.utilizationGpu === "number"
-        ? Number(controller.utilizationGpu.toFixed(1))
-        : typeof controller.utilizationMemory === "number"
-          ? Number(controller.utilizationMemory.toFixed(1))
-          : null,
-    temperatureCelsius:
-      typeof controller.temperatureGpu === "number"
-        ? Number(controller.temperatureGpu.toFixed(1))
-        : null,
-    powerWatts: typeof controller.powerDraw === "number" ? Number(controller.powerDraw.toFixed(1)) : null,
+      pickNumber(controller, ["utilizationGpu", "utilizationGPU", "gpuUtilization", "loadGpu", "load"]) ??
+      pickNumber(controller, ["utilizationMemory", "memoryUtilization"]) ??
+      null,
+    temperatureCelsius: pickNumber(controller, ["temperatureGpu", "temperature", "temp"]) ?? null,
+    powerWatts: pickNumber(controller, ["powerDraw", "power", "powerConsumption"]) ?? null,
     clockMhz:
-      typeof controller.clockCore === "number"
-        ? Number(controller.clockCore.toFixed(0))
-        : typeof controller.clockMemory === "number"
-          ? Number(controller.clockMemory.toFixed(0))
-          : null,
+      pickNumber(controller, ["clockCore", "clockGpu", "clock", "coreClock"]) ??
+      pickNumber(controller, ["clockMemory", "memoryClock"]) ??
+      null,
     encoderPercent: null,
     decoderPercent: null,
-    vram: (() => {
-      const raw = controller as unknown as Record<string, unknown>;
-      if (typeof raw.vram !== "number") {
-        return null;
-      }
-      const totalBytes = Math.round(raw.vram * 1024 * 1024);
-      const usedBytes = typeof raw.vramUsed === "number" ? Math.round(raw.vramUsed * 1024 * 1024) : null;
-      const freeBytes = typeof raw.vramFree === "number" ? Math.round(raw.vramFree * 1024 * 1024) : null;
-      return { totalBytes, usedBytes, freeBytes };
-    })(),
+    vram,
     processCount: null
   };
 }
@@ -143,14 +219,44 @@ async function collectGpu(): Promise<GpuMetrics | null> {
 
   const rocm = await queryRocmSmi();
   if (rocm) {
-    return rocm;
+    const sysfsVram = await readLinuxSysfsVram();
+    return {
+      ...rocm,
+      vram: rocm.vram ?? sysfsVram ?? null
+    };
   }
 
   try {
-    return await querySystemInformationGpu();
+    const systeminfo = await querySystemInformationGpu();
+    if (systeminfo) {
+      const sysfsVram = await readLinuxSysfsVram();
+      return {
+        ...systeminfo,
+        vram: systeminfo.vram ?? sysfsVram ?? null
+      };
+    }
   } catch {
-    return null;
+    // Ignore and fall through to sysfs-only fallback.
   }
+
+  const sysfsVram = await readLinuxSysfsVram();
+  if (sysfsVram) {
+    return {
+      vendor: "unknown",
+      model: "unknown",
+      driver: null,
+      usagePercent: null,
+      temperatureCelsius: null,
+      powerWatts: null,
+      clockMhz: null,
+      encoderPercent: null,
+      decoderPercent: null,
+      vram: sysfsVram,
+      processCount: null
+    };
+  }
+
+  return null;
 }
 
 export const createGpuCollector = createCollector<GpuMetrics>("gpu", "gpu", async () => {

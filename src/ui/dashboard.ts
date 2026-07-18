@@ -380,15 +380,25 @@ h1 {
   grid-row: span 6;
 }
 
+.widget[data-rows="7"] {
+  grid-row: span 7;
+}
+
+.widget[data-rows="8"] {
+  grid-row: span 8;
+}
+
 .resize-handle {
   position: absolute;
   right: 8px;
   bottom: 8px;
-  width: 14px;
-  height: 14px;
+  width: 18px;
+  height: 18px;
   cursor: nwse-resize;
   border-right: 2px solid rgba(255, 255, 255, 0.35);
   border-bottom: 2px solid rgba(255, 255, 255, 0.35);
+  z-index: 2;
+  touch-action: none;
 }
 
 .metric-grid {
@@ -881,8 +891,8 @@ export function getDashboardJs(): string {
     "    if (item.id === 'analysis') return widgetShell(item, renderAnalysis(snapshot));",
     "    if (item.id === 'trends') return widgetShell(item, renderTrendCanvases());",
     "    if (item.id === 'ollama') {",
-    "      var runningRows = (snapshot.ollama && snapshot.ollama.running || []).map(function (entry) { return [entry.name, entry.processorSplit || 'n/a', entry.context || 'n/a', entry.expiresAt || 'n/a']; });",
-    "      var installedRows = (snapshot.ollama && snapshot.ollama.installed || []).map(function (entry) { return [entry.name, entry.contextLength || 'n/a', entry.architecture || 'n/a', entry.license || 'n/a']; });",
+    "      var runningRows = (snapshot.ollama && snapshot.ollama.running || []).map(function (entry) { return [entry.name, fmtPct(entry.cpuPercent), fmtPct(entry.gpuPercent), entry.context || 'n/a', entry.contextLength || 'n/a', entry.size || 'n/a', entry.expiresAt || 'n/a']; });",
+    "      var installedRows = (snapshot.ollama && snapshot.ollama.installed || []).map(function (entry) { return [entry.name, entry.contextLength || 'n/a', entry.quantization || 'n/a', entry.architecture || 'n/a', entry.license || 'n/a']; });",
     "      return widgetShell(item, '<div class=\"table-wrap\" id=\"ollama-running\"></div><div class=\"table-wrap\" id=\"ollama-installed\"></div>');",
     "    }",
     "    if (item.id === 'processes') return widgetShell(item, '<div class=\"table-wrap\" id=\"processes-table\"></div>');",
@@ -937,8 +947,8 @@ export function getDashboardJs(): string {
     "  }",
     "",
     "  function renderTables(snapshot) {",
-    "    renderTable('ollama-running', ['Model', 'Processor', 'Context', 'Expires'], (snapshot.ollama && snapshot.ollama.running || []).map(function (item) { return [item.name, item.processorSplit || 'n/a', item.context || 'n/a', item.expiresAt || 'n/a']; }));",
-    "    renderTable('ollama-installed', ['Installed', 'Context', 'Architecture', 'License'], (snapshot.ollama && snapshot.ollama.installed || []).map(function (item) { return [item.name, item.contextLength || 'n/a', item.architecture || 'n/a', item.license || 'n/a']; }));",
+    "    renderTable('ollama-running', ['Model', 'CPU %', 'GPU %', 'Context', 'Limit', 'Size', 'Expires'], (snapshot.ollama && snapshot.ollama.running || []).map(function (item) { return [item.name, fmtPct(item.cpuPercent), fmtPct(item.gpuPercent), item.context || 'n/a', item.contextLength || 'n/a', item.size || 'n/a', item.expiresAt || 'n/a']; }));",
+    "    renderTable('ollama-installed', ['Model', 'Context', 'Quantization', 'Architecture', 'License'], (snapshot.ollama && snapshot.ollama.installed || []).map(function (item) { return [item.name, item.contextLength || 'n/a', item.quantization || 'n/a', item.architecture || 'n/a', item.license || 'n/a']; }));",
     "    renderTable('processes-table', ['PID', 'Process', 'CPU', 'RAM', 'GPU'], (snapshot.processes && snapshot.processes.processes || []).map(function (item) { return [item.pid, item.command, fmtPct(item.cpuPercent), fmtBytes(item.ramBytes), item.gpuPercent === null || item.gpuPercent === undefined ? 'n/a' : fmtPct(item.gpuPercent)]; }));",
     "  }",
     "",
@@ -1043,14 +1053,19 @@ export function getDashboardJs(): string {
     "        var item = state.layout.find(function (entry) { return entry.id === id; });",
     "        if (!item) return;",
     "        var gridRect = grid.getBoundingClientRect();",
+    "        var gridStyles = window.getComputedStyle(grid);",
+    "        var columnGap = Number.parseFloat(gridStyles.columnGap || gridStyles.gridColumnGap || '0') || 0;",
+    "        var rowGap = Number.parseFloat(gridStyles.rowGap || gridStyles.gridRowGap || '0') || 0;",
+    "        var columnStep = (gridRect.width - columnGap * 11) / 12 + columnGap;",
+    "        var rowStep = Number.parseFloat(gridStyles.gridAutoRows || '36') + rowGap;",
     "        state.resizing = {",
     "          id: id,",
     "          startX: event.clientX,",
     "          startY: event.clientY,",
     "          startCols: item.cols,",
     "          startRows: item.rows,",
-    "          cellWidth: gridRect.width / 12,",
-    "          cellHeight: 28",
+    "          cellWidth: columnStep,",
+    "          cellHeight: rowStep",
     "        };",
     "        resizeHandle.setPointerCapture(event.pointerId);",
     "      });",
@@ -1060,7 +1075,7 @@ export function getDashboardJs(): string {
     "      if (!state.resizing) return;",
     "      var item = state.layout.find(function (entry) { return entry.id === state.resizing.id; });",
     "      if (!item) return;",
-    "      var colsDelta = Math.round((event.clientX - state.resizing.startX) / Math.max(48, state.resizing.cellWidth / 2));",
+    "      var colsDelta = Math.round((event.clientX - state.resizing.startX) / state.resizing.cellWidth);",
     "      var rowsDelta = Math.round((event.clientY - state.resizing.startY) / state.resizing.cellHeight);",
     "      item.cols = clamp(state.resizing.startCols + colsDelta, 2, 12);",
     "      item.rows = clamp(state.resizing.startRows + rowsDelta, 2, 8);",

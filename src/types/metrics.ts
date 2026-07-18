@@ -111,6 +111,9 @@ export interface OllamaRunningModel {
   size?: string | null;
   expiresAt?: string | null;
   context?: number | null;
+  contextLength?: number | null;
+  quantization?: string | null;
+  architecture?: string | null;
 }
 
 export interface OllamaMetrics {
@@ -176,4 +179,3 @@ export interface MetricsSnapshot {
   history: HistoryMetrics | null;
   analysis: AnalysisFinding[];
 }
-
